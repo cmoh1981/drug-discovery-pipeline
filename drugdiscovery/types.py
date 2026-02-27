@@ -78,6 +78,12 @@ class Candidate:
     parent_id: str = ""            # For modified candidates
     modification: str = ""         # Modification type applied
     modification_detail: str = ""
+    # Perturbation biology (M4.6)
+    perturbation_score: float = 0.0       # 0-1 aggregate perturbation score
+    cmap_connectivity: float = 0.0        # L1000/CMAP connectivity score (-1 to 1, normalized to 0-1)
+    cmap_compound_match: str = ""         # Nearest CMAP compound matched
+    network_effect_score: float = 0.0     # STRING PPI network propagation score (0-1)
+    disease_signature_reversal: float = 0.0  # How well drug reverses disease signature (0-1)
     metadata: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
@@ -98,6 +104,11 @@ class Candidate:
             "admet_score": round(self.admet_score, 4),
             "admet_flags": self.admet_flags,
             "delivery_system": self.delivery_system,
+            "perturbation_score": round(self.perturbation_score, 4),
+            "cmap_connectivity": round(self.cmap_connectivity, 4),
+            "cmap_compound_match": self.cmap_compound_match,
+            "network_effect_score": round(self.network_effect_score, 4),
+            "disease_signature_reversal": round(self.disease_signature_reversal, 4),
             "composite_score": round(self.composite_score, 4),
             "rank": self.rank,
         }
@@ -160,11 +171,12 @@ class PipelineConfig:
     target_pdb_path: str = ""  # User-provided PDB file path
     # Module-specific settings loaded from YAML
     scoring_weights: dict = field(default_factory=lambda: {
-        "binding_energy": 0.35,
-        "selectivity": 0.25,
-        "drug_likeness": 0.15,
+        "binding_energy": 0.30,
+        "selectivity": 0.20,
+        "drug_likeness": 0.10,
         "admet_aggregate": 0.15,
         "moa_consistency": 0.10,
+        "perturbation": 0.15,
     })
     pepmlm_settings: dict = field(default_factory=lambda: {
         "model_name": "TianlaiChen/PepMLM-650M",

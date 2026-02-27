@@ -525,6 +525,7 @@ def compute_composite_score(
         "drug_likeness": _clamp(safe_float(candidate.drug_likeness)),
         "admet_aggregate": _clamp(safe_float(candidate.admet_score)),
         "moa_consistency": moa_score,
+        "perturbation": _clamp(safe_float(candidate.perturbation_score)),
     }
 
     total_weight = sum(weights.get(k, 0.0) for k in components)
@@ -553,7 +554,7 @@ def compute_composite_score(
 
     logger.debug(
         "[M5] %s composite=%.4f "
-        "(bind=%.4f sel=%.4f dl=%.4f admet=%.4f moa=%.4f conf_gate=%.2f)",
+        "(bind=%.4f sel=%.4f dl=%.4f admet=%.4f moa=%.4f pert=%.4f conf_gate=%.2f)",
         candidate.candidate_id,
         candidate.composite_score,
         components["binding_energy"],
@@ -561,6 +562,7 @@ def compute_composite_score(
         components["drug_likeness"],
         components["admet_aggregate"],
         components["moa_consistency"],
+        components["perturbation"],
         conf,
     )
 

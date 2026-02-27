@@ -2,11 +2,12 @@
 # Override via --config path/to/custom.yaml
 
 scoring_weights:
-  binding_energy: 0.35
-  selectivity: 0.25
-  drug_likeness: 0.15
+  binding_energy: 0.30
+  selectivity: 0.20
+  drug_likeness: 0.10
   admet_aggregate: 0.15
   moa_consistency: 0.10
+  perturbation: 0.15
 
 pepmlm:
   model_name: "TianlaiChen/PepMLM-650M"
@@ -54,6 +55,18 @@ delivery:
     blood: ["IV", "subcutaneous"]
     kidney: ["IV", "oral"]
     default: ["IV", "oral", "subcutaneous"]
+
+perturbation:
+  enable: true
+  cmap_api_url: "https://api.clue.io/api"
+  cmap_api_key: ""
+  string_api_url: "https://string-db.org/api"
+  network_depth: 2
+  knn_neighbors: 5
+  tier_weights:
+    cmap_connectivity: 0.50
+    knn_transfer: 0.20
+    network_effect: 0.30
 
 modifications:
   peptide:

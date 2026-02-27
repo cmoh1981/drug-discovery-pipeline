@@ -98,6 +98,16 @@ def run_pipeline(cfg: PipelineConfig) -> Path:
     except Exception as exc:
         logger.warning("[M4.5] Docking skipped: %s", exc, exc_info=True)
 
+    # --- M4.6: Perturbation Biology ---
+    logger.info("[M4.6] Perturbation Biology Scoring")
+    try:
+        from drugdiscovery.modules.perturbation import predict_perturbation
+
+        candidates = predict_perturbation(cfg, candidates, target_profile, run_dir / "perturbation")
+        logger.info("[M4.6] Perturbation scores computed for %d candidates", len(candidates))
+    except Exception as exc:
+        logger.warning("[M4.6] Perturbation scoring skipped: %s", exc, exc_info=True)
+
     # --- M7: ADMET Prediction (before scoring so admet_score enters composite) ---
     logger.info("[M7] ADMET Prediction")
     from drugdiscovery.modules.admet import predict_admet

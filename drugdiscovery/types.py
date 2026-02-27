@@ -160,11 +160,11 @@ class PipelineConfig:
     target_pdb_path: str = ""  # User-provided PDB file path
     # Module-specific settings loaded from YAML
     scoring_weights: dict = field(default_factory=lambda: {
-        "binding_energy": 0.30,
-        "structure_confidence": 0.20,
-        "selectivity": 0.20,
+        "binding_energy": 0.35,
+        "selectivity": 0.25,
         "drug_likeness": 0.15,
-        "sequence_diversity": 0.15,
+        "admet_aggregate": 0.15,
+        "moa_consistency": 0.10,
     })
     pepmlm_settings: dict = field(default_factory=lambda: {
         "model_name": "TianlaiChen/PepMLM-650M",

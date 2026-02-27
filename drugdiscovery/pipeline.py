@@ -98,6 +98,13 @@ def run_pipeline(cfg: PipelineConfig) -> Path:
     except Exception as exc:
         logger.warning("[M4.5] Docking skipped: %s", exc, exc_info=True)
 
+    # --- M7: ADMET Prediction (before scoring so admet_score enters composite) ---
+    logger.info("[M7] ADMET Prediction")
+    from drugdiscovery.modules.admet import predict_admet
+
+    candidates = predict_admet(cfg, candidates, run_dir / "admet")
+    logger.info("[M7] ADMET profiles computed for %d candidates", len(candidates))
+
     # --- M5: Binding & Scoring ---
     logger.info("[M5] Binding & Scoring")
     from drugdiscovery.modules.scoring import score_candidates
@@ -118,15 +125,24 @@ def run_pipeline(cfg: PipelineConfig) -> Path:
     all_candidates = top_candidates + modified
     logger.info("[M6] Generated %d modified variants", len(modified))
 
-    # Re-score modified candidates
-    all_candidates = score_candidates(cfg, all_candidates, target_profile, run_dir / "scoring")
+    # Re-dock modified candidates so binding_score reflects modifications
+    if modified:
+        logger.info("[M4.5] Re-docking %d modified candidates", len(modified))
+        try:
+            from drugdiscovery.modules.docking import dock_candidates  # noqa: PLC0415
 
-    # --- M7: ADMET Prediction ---
-    logger.info("[M7] ADMET Prediction")
-    from drugdiscovery.modules.admet import predict_admet
+            modified = dock_candidates(cfg, modified, target_profile, run_dir)
+            logger.info("[M4.5] Re-docking complete for %d modified candidates", len(modified))
+            all_candidates = top_candidates + modified
+        except Exception as exc:
+            logger.warning("[M4.5] Re-docking skipped: %s", exc, exc_info=True)
 
+    # Re-run ADMET for modified candidates
+    logger.info("[M7] ADMET for modified candidates")
     all_candidates = predict_admet(cfg, all_candidates, run_dir / "admet")
-    logger.info("[M7] ADMET profiles computed for %d candidates", len(all_candidates))
+
+    # Re-score all candidates with updated binding + ADMET
+    all_candidates = score_candidates(cfg, all_candidates, target_profile, run_dir / "scoring")
 
     # --- M8: Delivery System ---
     logger.info("[M8] Delivery System Recommendation")

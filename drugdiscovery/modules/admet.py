@@ -281,7 +281,20 @@ def _predict_sm_admet(cand: Candidate) -> ADMETProfile:
     """
     profile = ADMETProfile(candidate_id=cand.candidate_id)
 
-    # Try RDKit-based local computation
+    # Try ADMETlab 3.0 API first
+    if cand.smiles:
+        try:
+            from drugdiscovery.tools.admetlab3 import predict_admet_admetlab3
+
+            api_result = predict_admet_admetlab3(cand.smiles)
+            if api_result is not None:
+                profile = _admetlab3_to_profile(cand.candidate_id, api_result)
+                logger.info("[M7] ADMETlab 3.0 prediction for %s", cand.candidate_id)
+                return profile
+        except Exception as exc:
+            logger.warning("[M7] ADMETlab 3.0 failed for %s: %s", cand.candidate_id, exc)
+
+    # Fall back to RDKit-based local computation
     try:
         profile = _rdkit_admet(cand.smiles, profile)
     except Exception as exc:
@@ -369,6 +382,74 @@ def _rdkit_admet(smiles: str, profile: ADMETProfile) -> ADMETProfile:
         flags.append("hepatotoxicity_risk")
     else:
         profile.hepatotoxicity_risk = 0.1
+
+    profile.flags = flags
+    profile.flag_count = len(flags)
+    profile.aggregate_score = _compute_aggregate(profile)
+
+    return profile
+
+
+# ---------------------------------------------------------------------------
+# ADMETlab 3.0 result conversion
+# ---------------------------------------------------------------------------
+
+def _clamp_float(val, lo: float = 0.0, hi: float = 1.0) -> float:
+    """Clamp a value to [lo, hi], handling None and non-numeric values."""
+    try:
+        v = float(val) if val is not None else 0.0
+    except (TypeError, ValueError):
+        v = 0.0
+    return max(lo, min(hi, v))
+
+
+def _admetlab3_to_profile(candidate_id: str, data: dict) -> ADMETProfile:
+    """Convert ADMETlab 3.0 API results to ADMETProfile."""
+    profile = ADMETProfile(candidate_id=candidate_id)
+
+    # Solubility: logS → 0-1 score (higher logS = more soluble = better)
+    logs = data.get("solubility", 0.0)
+    if logs >= 0:
+        profile.solubility = 1.0
+    elif logs >= -2:
+        profile.solubility = 0.8
+    elif logs >= -4:
+        profile.solubility = 0.5
+    elif logs >= -6:
+        profile.solubility = 0.2
+    else:
+        profile.solubility = 0.0
+
+    # Permeability from Caco-2 (log Papp; > -5 is good)
+    caco2 = data.get("caco2_permeability", 0.0)
+    profile.permeability = _clamp_float(0.5 + caco2 / 10.0)
+
+    # Oral bioavailability (classification probability)
+    profile.oral_bioavailability = _clamp_float(data.get("oral_bioavailability", 0.5))
+
+    # BBB penetration (classification probability)
+    profile.bbb_permeability = _clamp_float(data.get("bbb_penetration", 0.0))
+
+    # hERG blocker probability (high = risky)
+    profile.herg_liability = _clamp_float(data.get("herg_blocker", 0.0))
+
+    # Hepatotoxicity / DILI probability (high = risky)
+    profile.hepatotoxicity_risk = _clamp_float(data.get("hepatotoxicity", 0.0))
+
+    # Build flags
+    flags: list[str] = []
+    if profile.solubility < 0.3:
+        flags.append("low_solubility")
+    if profile.permeability < 0.3:
+        flags.append("poor_permeability")
+    if profile.herg_liability > 0.5:
+        flags.append("herg_risk")
+    if profile.hepatotoxicity_risk > 0.5:
+        flags.append("hepatotoxicity_risk")
+    if _clamp_float(data.get("ames_toxicity", 0.0)) > 0.5:
+        flags.append("ames_positive")
+    if _clamp_float(data.get("carcinogenicity", 0.0)) > 0.5:
+        flags.append("carcinogenicity_risk")
 
     profile.flags = flags
     profile.flag_count = len(flags)

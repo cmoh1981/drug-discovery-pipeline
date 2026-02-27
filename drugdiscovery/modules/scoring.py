@@ -464,44 +464,67 @@ def compute_sequence_diversity(candidates: list[Candidate]) -> list[Candidate]:
 # Step 5 – Composite scoring
 # ---------------------------------------------------------------------------
 
+# Absolute binding energy threshold (kcal/mol).  Candidates weaker than this
+# receive zero binding credit.  More negative = stronger binding.
+BINDING_THRESHOLD = -5.0
+
+
 def compute_composite_score(
     candidate: Candidate,
     weights: dict,
     *,
     binding_min: float,
     binding_max: float,
+    target_mode: str = "antagonist",
 ) -> Candidate:
     """Compute weighted composite score (0-1) for a single candidate.
 
-    Normalization:
+    Scored components (weighted):
       binding_energy   – lower raw binding_score is better; min-max normalize
-                         then invert so that the best binder → 1.0
-      structure_confidence – already 0-1 (higher is better)
+                         then invert so that the best binder → 1.0.
+                         Candidates weaker than BINDING_THRESHOLD get 0.0.
       selectivity      – already 0-1 (higher is better)
       drug_likeness    – already 0-1 (higher is better)
-      sequence_diversity – already 0-1 (higher is better)
+      admet_aggregate  – already 0-1 (higher is better)
+      moa_consistency  – 1.0 if predicted MOA matches target, 0.5 unknown
+
+    Gates (not scored, applied as multipliers):
+      structure_confidence – if pLDDT/iPTM < 0.5, composite is halved
+
+    Post-ranking filters (not in composite):
+      sequence_diversity – applied separately after ranking
 
     *binding_min* / *binding_max* are the batch-level min/max of raw
     binding_score values; they must be pre-computed and passed in.
     """
-    # ---- Normalize binding score ----
-    binding_range = binding_max - binding_min
-    if binding_range < 1e-9:
-        # All candidates have identical binding scores → neutral 0.5
-        norm_binding = 0.5
+    # ---- Absolute binding threshold ----
+    if candidate.binding_score > BINDING_THRESHOLD:
+        norm_binding = 0.0
     else:
-        # Scale to [0,1] then invert (lower raw score = better = higher normalized)
-        raw_norm = (candidate.binding_score - binding_min) / binding_range
-        norm_binding = 1.0 - raw_norm
+        # ---- Normalize binding score (batch-relative) ----
+        binding_range = binding_max - binding_min
+        if binding_range < 1e-9:
+            norm_binding = 0.5
+        else:
+            raw_norm = (candidate.binding_score - binding_min) / binding_range
+            norm_binding = 1.0 - raw_norm
+        norm_binding = _clamp(norm_binding)
 
-    norm_binding = _clamp(norm_binding)
+    # ---- MOA consistency ----
+    moa = (candidate.moa_predicted or "unknown").lower()
+    if moa == target_mode.lower():
+        moa_score = 1.0
+    elif moa == "unknown":
+        moa_score = 0.5
+    else:
+        moa_score = 0.0
 
     components = {
         "binding_energy": norm_binding,
-        "structure_confidence": _clamp(safe_float(candidate.structure_confidence)),
         "selectivity": _clamp(safe_float(candidate.selectivity_score)),
         "drug_likeness": _clamp(safe_float(candidate.drug_likeness)),
-        "sequence_diversity": _clamp(safe_float(candidate.sequence_diversity)),
+        "admet_aggregate": _clamp(safe_float(candidate.admet_score)),
+        "moa_consistency": moa_score,
     }
 
     total_weight = sum(weights.get(k, 0.0) for k in components)
@@ -517,18 +540,28 @@ def compute_composite_score(
         weights.get(k, 0.0) * v for k, v in components.items()
     ) / total_weight
 
+    # ---- Structure confidence gate ----
+    conf = safe_float(candidate.structure_confidence)
+    if 0 < conf < 0.5:
+        composite *= 0.5
+        logger.debug(
+            "[M5] %s structure_confidence=%.2f < 0.5; composite halved",
+            candidate.candidate_id, conf,
+        )
+
     candidate.composite_score = round(_clamp(composite), 4)
 
     logger.debug(
         "[M5] %s composite=%.4f "
-        "(bind_norm=%.4f conf=%.4f sel=%.4f dl=%.4f div=%.4f)",
+        "(bind=%.4f sel=%.4f dl=%.4f admet=%.4f moa=%.4f conf_gate=%.2f)",
         candidate.candidate_id,
         candidate.composite_score,
         components["binding_energy"],
-        components["structure_confidence"],
         components["selectivity"],
         components["drug_likeness"],
-        components["sequence_diversity"],
+        components["admet_aggregate"],
+        components["moa_consistency"],
+        conf,
     )
 
     return candidate
@@ -600,6 +633,7 @@ def score_candidates(
             weights,
             binding_min=binding_min,
             binding_max=binding_max,
+            target_mode=cfg.mode.value,
         )
 
     # --- Sort and rank ---

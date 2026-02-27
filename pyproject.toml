@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "drugdiscovery"
+version = "0.1.0"
+description = "Unified drug discovery pipeline supporting small molecules and peptides"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+
+dependencies = [
+    "numpy>=1.24.0",
+    "pandas>=2.0.0",
+    "requests>=2.31.0",
+    "biopython>=1.83",
+    "rdkit>=2023.9.1",
+    "pydantic>=2.5.0",
+    "jinja2>=3.1.0",
+    "tqdm>=4.66.0",
+    "matplotlib>=3.8.0",
+    "seaborn>=0.13.0",
+    "pyyaml>=6.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+gpu = [
+    "torch>=2.1.0",
+    "transformers>=4.36.0",
+    "sentencepiece>=0.1.99",
+]
+docking = [
+    "vina>=1.2.0",
+    "meeko>=0.5.0",
+]
+cloud = [
+    "runpod>=1.6.0",
+]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+]
+all = [
+    "drugdiscovery[gpu,docking,cloud,dev]",
+]
+
+[project.scripts]
+drugdiscovery = "drugdiscovery.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["drugdiscovery*"]

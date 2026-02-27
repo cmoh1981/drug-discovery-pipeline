@@ -1,0 +1,35 @@
+# Core
+numpy>=1.24.0
+pandas>=2.0.0
+requests>=2.31.0
+biopython>=1.83
+pydantic>=2.5.0
+jinja2>=3.1.0
+tqdm>=4.66.0
+pyyaml>=6.0
+python-dotenv>=1.0.0
+
+# Chemistry
+rdkit>=2023.9.1
+
+# Visualization
+matplotlib>=3.8.0
+seaborn>=0.13.0
+
+# GPU (optional)
+torch>=2.1.0
+transformers>=4.36.0
+sentencepiece>=0.1.99
+
+# Docking (optional — pipeline skips gracefully if unavailable)
+vina>=1.2.0
+meeko>=0.5.0
+
+# Cloud (optional)
+# runpod>=1.6.0
+
+# Database clients
+# chembl_webresource_client>=0.10
+
+# Dev
+pytest>=7.4.0

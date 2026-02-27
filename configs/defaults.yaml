@@ -1,0 +1,69 @@
+# Drug Discovery Pipeline - Default Configuration
+# Override via --config path/to/custom.yaml
+
+scoring_weights:
+  binding_energy: 0.30
+  structure_confidence: 0.20
+  selectivity: 0.20
+  drug_likeness: 0.15
+  sequence_diversity: 0.15
+
+pepmlm:
+  model_name: "TianlaiChen/PepMLM-650M"
+  fallback_model: "ChatterjeeLab/PepMLM-650M"
+  lengths: [8, 10, 12, 15, 20, 25, 30]
+  num_per_length: 50
+  top_k: 3
+
+diffpepbuilder:
+  num_samples: 100
+  peptide_length_min: 8
+  peptide_length_max: 25
+  disulfide_bonds: false
+
+vina:
+  exhaustiveness: 32
+  n_poses: 10
+  box_size: 30.0
+
+library:
+  max_hits_per_db: 500
+  similarity_threshold: 0.7
+  databases:
+    small_molecule:
+      - chembl
+      - drugbank
+      - coconut
+      - zinc22
+    peptide:
+      - chembl
+      - biopep
+      - apd3
+      - dbaasp
+
+admet:
+  use_admetlab3: true
+  admetlab3_url: "https://admetlab3.scbdd.com/api"
+  flags_threshold: 3
+
+delivery:
+  tissue_routes:
+    lung: ["inhalation", "IV", "nanoparticle"]
+    liver: ["oral", "IV", "nanoparticle"]
+    brain: ["intranasal", "IV_with_BBB_shuttle", "nanoparticle"]
+    blood: ["IV", "subcutaneous"]
+    kidney: ["IV", "oral"]
+    default: ["IV", "oral", "subcutaneous"]
+
+modifications:
+  peptide:
+    - cyclization
+    - stapling
+    - d_amino_acid
+    - n_methylation
+    - mpp_conjugation
+    - pegylation
+  small_molecule:
+    - prodrug
+    - bioisostere
+    - salt_form

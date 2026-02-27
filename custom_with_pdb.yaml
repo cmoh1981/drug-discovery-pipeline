@@ -1,0 +1,15 @@
+# Custom config for ESRRG with RCSB PDB structure 1S9P
+# Crystal structure of LBD with diethylstilbestrol at 2.13 Å resolution
+
+target_pdb_path: "structures/1S9P.pdb"
+
+scoring_weights:
+  binding_energy: 0.30
+  structure_confidence: 0.20
+  selectivity: 0.20
+  drug_likeness: 0.15
+  sequence_diversity: 0.15
+
+vina:
+  exhaustiveness: 32
+  n_poses: 10

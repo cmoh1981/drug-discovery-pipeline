@@ -54,7 +54,10 @@ def search_zinc_by_similarity(
             "similarity": threshold,
             "count": limit,
         }
-        resp = get_with_retries(url, headers=_HEADERS, params=params)
+        resp = get_with_retries(
+            url, headers=_HEADERS, params=params,
+            timeout=60, attempts=3, delay=5,
+        )
         data = resp.json()
         results = _parse_substance_list(data, limit)
         logger.info(
@@ -87,7 +90,10 @@ def search_zinc_by_substructure(smarts: str, limit: int = 100) -> list[dict]:
     try:
         url = f"{ZINC_BASE}/substances/subsets/for-sale.json"
         params: dict[str, Any] = {"smarts": smarts, "count": limit}
-        resp = get_with_retries(url, headers=_HEADERS, params=params)
+        resp = get_with_retries(
+            url, headers=_HEADERS, params=params,
+            timeout=60, attempts=3, delay=5,
+        )
         data = resp.json()
         results = _parse_substance_list(data, limit)
         logger.info(
@@ -116,7 +122,10 @@ def search_zinc_by_name(name: str, limit: int = 50) -> list[dict]:
     try:
         url = f"{ZINC_BASE}/substances.json"
         params: dict[str, Any] = {"name": name, "count": limit}
-        resp = get_with_retries(url, headers=_HEADERS, params=params)
+        resp = get_with_retries(
+            url, headers=_HEADERS, params=params,
+            timeout=60, attempts=3, delay=5,
+        )
         data = resp.json()
         results = _parse_substance_list(data, limit)
         logger.info("ZINC22 search_by_name(%r): %d results", name, len(results))

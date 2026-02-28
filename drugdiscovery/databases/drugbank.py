@@ -84,9 +84,28 @@ def search_drugbank(
 
 
 def _search_local_csv(query: str, data_dir: str, limit: int) -> list[dict]:
-    """Search the DrugBank open CSV for rows matching query (case-insensitive)."""
-    csv_path = Path(data_dir) / "drugbank_open_structures.csv" if data_dir else Path("drugbank_open_structures.csv")
-    if not csv_path.exists():
+    """Search the DrugBank open CSV for rows matching query (case-insensitive).
+
+    Checks several candidate file names and locations:
+      1. ``{data_dir}/drugbank_open_structures.csv``
+      2. ``{data_dir}/drugbank_vocabulary.csv``  (DrugBank open data vocab)
+      3. ``data/drugbank_open_structures.csv``    (project data folder)
+    """
+    candidates: list[Path] = []
+    if data_dir:
+        base = Path(data_dir)
+        candidates.append(base / "drugbank_open_structures.csv")
+        candidates.append(base / "drugbank_vocabulary.csv")
+    candidates.append(Path("data") / "drugbank_open_structures.csv")
+    candidates.append(Path("drugbank_open_structures.csv"))
+
+    csv_path: Path | None = None
+    for p in candidates:
+        if p.exists():
+            csv_path = p
+            break
+
+    if csv_path is None:
         return []
 
     results: list[dict] = []

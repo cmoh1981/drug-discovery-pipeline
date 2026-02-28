@@ -468,6 +468,12 @@ def compute_sequence_diversity(candidates: list[Candidate]) -> list[Candidate]:
 # receive zero binding credit.  More negative = stronger binding.
 BINDING_THRESHOLD = -5.0
 
+# Hard discard threshold (kcal/mol).  Candidates with binding_score above
+# this value are removed entirely before ranking — they are too weak to
+# be considered drug candidates.  Only applied when real docking data exists
+# (i.e. at least some candidates have binding_score < 0).
+BINDING_DISCARD_THRESHOLD = -3.0
+
 
 def compute_composite_score(
     candidate: Candidate,
@@ -573,6 +579,159 @@ def compute_composite_score(
 # Main entry point
 # ---------------------------------------------------------------------------
 
+def compute_sa_score(candidate: Candidate) -> Candidate:
+    """Compute Synthetic Accessibility score using RDKit (1-10, lower = easier).
+
+    Only applies to small molecules with valid SMILES.
+    """
+    if candidate.modality == "peptide" or not candidate.smiles:
+        return candidate
+    try:
+        from rdkit import Chem
+        from rdkit.Chem import RDConfig
+        import sys
+        import os
+
+        sa_path = os.path.join(RDConfig.RDContribDir, "SA_Score")
+        if sa_path not in sys.path:
+            sys.path.insert(0, sa_path)
+        import sascorer  # type: ignore
+
+        mol = Chem.MolFromSmiles(candidate.smiles)
+        if mol is not None:
+            candidate.sa_score = round(sascorer.calculateScore(mol), 2)
+            logger.debug(
+                "[M5] %s SA score: %.2f",
+                candidate.candidate_id,
+                candidate.sa_score,
+            )
+    except Exception as exc:
+        logger.debug("[M5] SA score computation failed for %s: %s", candidate.candidate_id, exc)
+
+    return candidate
+
+
+def _apply_binding_discard_filter(candidates: list[Candidate]) -> list[Candidate]:
+    """Remove candidates with binding_score above BINDING_DISCARD_THRESHOLD.
+
+    Only applies when real docking data is present (at least some candidates
+    have non-zero binding scores).  If all binding scores are 0.0 (no docking
+    was performed), all candidates are kept.
+    """
+    has_real_docking = any(c.binding_score != 0.0 for c in candidates)
+    if not has_real_docking:
+        logger.info("[M5] No real docking data; skipping binding discard filter")
+        return candidates
+
+    before = len(candidates)
+    kept = [c for c in candidates if c.binding_score <= BINDING_DISCARD_THRESHOLD]
+    discarded = before - len(kept)
+
+    if discarded > 0:
+        logger.info(
+            "[M5] Binding discard filter: removed %d/%d candidates "
+            "(binding_score > %.1f kcal/mol)",
+            discarded, before, BINDING_DISCARD_THRESHOLD,
+        )
+
+    # Safety: never discard ALL candidates
+    if not kept:
+        logger.warning(
+            "[M5] All candidates would be discarded by binding filter; "
+            "keeping top 10 by binding_score"
+        )
+        kept = sorted(candidates, key=lambda c: c.binding_score)[:10]
+
+    return kept
+
+
+def _apply_diversity_filter(candidates: list[Candidate], top_n: int) -> list[Candidate]:
+    """Post-ranking diversity filter: remove near-duplicates from top-N.
+
+    For small molecules: if two candidates have Tanimoto similarity > 0.85,
+    keep the one with the higher composite score.
+    For peptides: if two candidates have normalized Levenshtein distance < 0.15,
+    keep the higher-scoring one.
+
+    Applied AFTER ranking, only to the top-N selection.
+    """
+    if len(candidates) <= 1:
+        return candidates
+
+    top = candidates[:top_n]
+    rest = candidates[top_n:]
+
+    sm_top = [c for c in top if c.modality != "peptide"]
+    pep_top = [c for c in top if c.modality == "peptide"]
+
+    # --- SM diversity filter via Tanimoto ---
+    if len(sm_top) > 1:
+        try:
+            from rdkit import Chem
+            from rdkit.Chem import rdMolDescriptors, DataStructs
+
+            fps = []
+            valid = []
+            for c in sm_top:
+                mol = Chem.MolFromSmiles(c.smiles) if c.smiles else None
+                if mol is not None:
+                    fp = rdMolDescriptors.GetMorganFingerprintAsBitVect(mol, radius=2, nBits=2048)
+                    fps.append(fp)
+                    valid.append(c)
+                else:
+                    valid.append(c)
+                    fps.append(None)
+
+            to_remove: set[int] = set()
+            for i in range(len(valid)):
+                if i in to_remove or fps[i] is None:
+                    continue
+                for j in range(i + 1, len(valid)):
+                    if j in to_remove or fps[j] is None:
+                        continue
+                    sim = DataStructs.TanimotoSimilarity(fps[i], fps[j])
+                    if sim > 0.85:
+                        # Remove the lower-scoring one (later in list = lower score)
+                        to_remove.add(j)
+
+            if to_remove:
+                sm_top = [c for idx, c in enumerate(valid) if idx not in to_remove]
+                logger.info(
+                    "[M5] Diversity filter removed %d near-duplicate SM candidates",
+                    len(to_remove),
+                )
+        except ImportError:
+            pass
+
+    # --- Peptide diversity filter via Levenshtein ---
+    if len(pep_top) > 1:
+        to_remove_pep: set[int] = set()
+        for i in range(len(pep_top)):
+            if i in to_remove_pep:
+                continue
+            for j in range(i + 1, len(pep_top)):
+                if j in to_remove_pep:
+                    continue
+                dist = _levenshtein_normalized(pep_top[i].sequence, pep_top[j].sequence)
+                if dist < 0.15:
+                    to_remove_pep.add(j)
+        if to_remove_pep:
+            pep_top = [c for idx, c in enumerate(pep_top) if idx not in to_remove_pep]
+            logger.info(
+                "[M5] Diversity filter removed %d near-duplicate peptide candidates",
+                len(to_remove_pep),
+            )
+
+    # Recombine and backfill from rest if we removed candidates
+    diverse_top = sorted(sm_top + pep_top, key=lambda c: c.composite_score, reverse=True)
+
+    # Backfill from rest to maintain top_n count
+    while len(diverse_top) < top_n and rest:
+        diverse_top.append(rest.pop(0))
+
+    return diverse_top + rest
+
+
 def score_candidates(
     cfg: PipelineConfig,
     candidates: list[Candidate],
@@ -585,14 +744,17 @@ def score_candidates(
       1. score_physicochemical  – MW, charge, GRAVY, pI
       2. score_drug_likeness    – drug_likeness ∈ [0,1]
       3. score_selectivity      – selectivity_score ∈ [0,1]
+      4. compute_sa_score       – SA score (1-10) for SM
 
     Then for the full batch:
-      4. compute_sequence_diversity – sequence_diversity ∈ [0,1]
-      5. compute_composite_score    – composite_score ∈ [0,1]
+      5. _apply_binding_discard_filter – remove extremely weak binders
+      6. compute_sequence_diversity    – sequence_diversity ∈ [0,1]
+      7. compute_composite_score       – composite_score ∈ [0,1]
 
     Finally:
-      6. Sort by composite_score descending, assign rank
-      7. Write scored_candidates.csv and top_N_candidates.csv
+      8. Sort by composite_score descending, assign rank
+      9. _apply_diversity_filter – remove near-duplicates from top-N
+     10. Write scored_candidates.csv and top_N_candidates.csv
 
     Returns the sorted, scored candidate list.
     """
@@ -611,6 +773,10 @@ def score_candidates(
         score_physicochemical(cand)
         score_drug_likeness(cand)
         score_selectivity(cand, target_profile)
+        compute_sa_score(cand)
+
+    # --- Binding discard filter (remove extremely weak binders) ---
+    candidates = _apply_binding_discard_filter(candidates)
 
     # --- Batch: sequence diversity ---
     logger.info("[M5] Computing sequence diversity …")
@@ -640,6 +806,11 @@ def score_candidates(
 
     # --- Sort and rank ---
     candidates.sort(key=lambda c: c.composite_score, reverse=True)
+
+    # --- Post-ranking diversity filter ---
+    top_n = cfg.top_n
+    candidates = _apply_diversity_filter(candidates, top_n)
+
     for rank, cand in enumerate(candidates, start=1):
         cand.rank = rank
 
@@ -648,7 +819,6 @@ def score_candidates(
     write_csv(output_dir / "scored_candidates.csv", all_rows)
     logger.info("[M5] Saved scored_candidates.csv (%d rows)", len(all_rows))
 
-    top_n = cfg.top_n
     top_rows = all_rows[:top_n]
     write_csv(output_dir / f"top_{top_n}_candidates.csv", top_rows)
     logger.info("[M5] Saved top_%d_candidates.csv (%d rows)", top_n, len(top_rows))

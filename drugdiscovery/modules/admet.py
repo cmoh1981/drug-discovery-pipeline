@@ -404,9 +404,14 @@ def _clamp_float(val, lo: float = 0.0, hi: float = 1.0) -> float:
 
 
 def _admetlab3_to_profile(candidate_id: str, data: dict) -> ADMETProfile:
-    """Convert ADMETlab 3.0 API results to ADMETProfile."""
+    """Convert ADMETlab 3.0 API results to ADMETProfile.
+
+    Parses all available endpoints from the ADMETlab3 response including
+    absorption, distribution, metabolism, excretion, and toxicity.
+    """
     profile = ADMETProfile(candidate_id=candidate_id)
 
+    # --- Absorption ---
     # Solubility: logS → 0-1 score (higher logS = more soluble = better)
     logs = data.get("solubility", 0.0)
     if logs >= 0:
@@ -424,12 +429,55 @@ def _admetlab3_to_profile(candidate_id: str, data: dict) -> ADMETProfile:
     caco2 = data.get("caco2_permeability", 0.0)
     profile.permeability = _clamp_float(0.5 + caco2 / 10.0)
 
-    # Oral bioavailability (classification probability)
-    profile.oral_bioavailability = _clamp_float(data.get("oral_bioavailability", 0.5))
+    # Human intestinal absorption
+    hia = data.get("hia", 0.0)
+    if hia > 0.5:
+        # HIA+ predicted — good oral absorption
+        profile.oral_bioavailability = max(
+            _clamp_float(data.get("oral_bioavailability", 0.5)),
+            _clamp_float(hia),
+        )
+    else:
+        profile.oral_bioavailability = _clamp_float(data.get("oral_bioavailability", 0.5))
 
+    # --- Distribution ---
     # BBB penetration (classification probability)
     profile.bbb_permeability = _clamp_float(data.get("bbb_penetration", 0.0))
 
+    # Plasma protein binding
+    ppb = data.get("ppb", 0.0)
+    profile.plasma_protein_binding = _clamp_float(ppb)
+
+    # --- Metabolism (CYP inhibition) ---
+    cyp_scores = []
+    for cyp_key in ("cyp1a2_inhibitor", "cyp2c9_inhibitor", "cyp2c19_inhibitor",
+                     "cyp2d6_inhibitor", "cyp3a4_inhibitor"):
+        val = data.get(cyp_key, 0.0)
+        if val is not None:
+            cyp_scores.append(_clamp_float(val))
+    if cyp_scores:
+        profile.cyp_inhibition = round(sum(cyp_scores) / len(cyp_scores), 4)
+
+    # Half-life estimate
+    t_half = data.get("t_half", 0.0)
+    if t_half > 0:
+        if t_half < 3:
+            profile.half_life_estimate = "short"
+        elif t_half < 12:
+            profile.half_life_estimate = "moderate"
+        else:
+            profile.half_life_estimate = "long"
+
+    # --- Excretion ---
+    clearance = data.get("clearance", 0.0)
+    if clearance > 15:
+        profile.renal_clearance = "high"
+    elif clearance > 5:
+        profile.renal_clearance = "moderate"
+    else:
+        profile.renal_clearance = "low"
+
+    # --- Toxicity ---
     # hERG blocker probability (high = risky)
     profile.herg_liability = _clamp_float(data.get("herg_blocker", 0.0))
 
@@ -450,6 +498,10 @@ def _admetlab3_to_profile(candidate_id: str, data: dict) -> ADMETProfile:
         flags.append("ames_positive")
     if _clamp_float(data.get("carcinogenicity", 0.0)) > 0.5:
         flags.append("carcinogenicity_risk")
+    if _clamp_float(data.get("skin_sensitization", 0.0)) > 0.5:
+        flags.append("skin_sensitization")
+    if profile.cyp_inhibition > 0.6:
+        flags.append("cyp_inhibition_risk")
 
     profile.flags = flags
     profile.flag_count = len(flags)

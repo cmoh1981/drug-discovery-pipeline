@@ -57,6 +57,7 @@ class Candidate:
     modality: str = ""            # "small_molecule", "peptide"
     source: str = ""              # "chembl", "pepmlm", "reinvent4", etc.
     smiles: str = ""              # SMILES (SM only)
+    iupac_name: str = ""          # IUPAC name (SM only, resolved via PubChem)
     sequence: str = ""            # AA sequence (peptide only)
     molecular_weight: float = 0.0
     net_charge: float = 0.0
@@ -78,6 +79,9 @@ class Candidate:
     parent_id: str = ""            # For modified candidates
     modification: str = ""         # Modification type applied
     modification_detail: str = ""
+    # Synthetic accessibility & pose validation
+    sa_score: float = 0.0                 # RDKit SA score (1-10, lower = easier to synthesize)
+    posecheck_valid: bool = True          # PoseCheck validation result
     # Perturbation biology (M4.6)
     perturbation_score: float = 0.0       # 0-1 aggregate perturbation score
     cmap_connectivity: float = 0.0        # L1000/CMAP connectivity score (-1 to 1, normalized to 0-1)
@@ -94,6 +98,7 @@ class Candidate:
             "modality": self.modality,
             "source": self.source,
             "smiles": self.smiles,
+            "iupac_name": self.iupac_name,
             "sequence": self.sequence,
             "molecular_weight": round(self.molecular_weight, 2),
             "net_charge": round(self.net_charge, 2),
@@ -109,6 +114,7 @@ class Candidate:
             "cmap_compound_match": self.cmap_compound_match,
             "network_effect_score": round(self.network_effect_score, 4),
             "disease_signature_reversal": round(self.disease_signature_reversal, 4),
+            "sa_score": round(self.sa_score, 2),
             "composite_score": round(self.composite_score, 4),
             "rank": self.rank,
         }

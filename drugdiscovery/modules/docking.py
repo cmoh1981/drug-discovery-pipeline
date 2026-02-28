@@ -117,11 +117,42 @@ def dock_candidates(
     n_poses = vina_cfg.get("n_poses", 10)
     box_size = vina_cfg.get("box_size", 30.0)
 
-    # --- Import vina tools ---
+    # --- Import docking tools (fallback chain: DiffDock → GNINA → Vina) ---
+    vina_dock_smiles = None
+    vina_dock_peptide = None
+    gnina_dock_smiles = None
+    gnina_dock_peptide = None
+    diffdock_dock_smiles = None
+    diffdock_dock_peptide = None
+
     try:
-        from drugdiscovery.tools.vina import dock_smiles, dock_peptide_pdb
+        from drugdiscovery.tools.diffdock import dock_smiles as dd_sm, dock_peptide_pdb as dd_pep, is_available as dd_avail
+        if dd_avail():
+            diffdock_dock_smiles = dd_sm
+            diffdock_dock_peptide = dd_pep
+            logger.info("[M4.5] DiffDock available (blind docking)")
     except ImportError:
-        logger.warning("[M4.5] Vina tools unavailable; skipping docking")
+        pass
+
+    try:
+        from drugdiscovery.tools.gnina import dock_smiles as gn_sm, dock_peptide_pdb as gn_pep, is_available as gn_avail
+        if gn_avail():
+            gnina_dock_smiles = gn_sm
+            gnina_dock_peptide = gn_pep
+            logger.info("[M4.5] GNINA available (CNN-enhanced docking)")
+    except ImportError:
+        pass
+
+    try:
+        from drugdiscovery.tools.vina import dock_smiles as v_sm, dock_peptide_pdb as v_pep
+        vina_dock_smiles = v_sm
+        vina_dock_peptide = v_pep
+        logger.info("[M4.5] Vina available (standard docking)")
+    except ImportError:
+        pass
+
+    if not any([diffdock_dock_smiles, gnina_dock_smiles, vina_dock_smiles]):
+        logger.warning("[M4.5] No docking tools available; skipping docking")
         return candidates
 
     # --- Dock each candidate ---
@@ -139,16 +170,42 @@ def dock_candidates(
             i + 1, len(candidates), cand.candidate_id, cand.modality,
         )
         score: Optional[float] = None
+        dock_tool_used = "none"
 
         if cand.modality == "small_molecule" and cand.smiles:
-            score = dock_smiles(
-                smiles=cand.smiles,
-                receptor_pdb=receptor_pdb,
-                center=center,
-                box_size=box_size,
-                exhaustiveness=exhaustiveness,
-                n_poses=n_poses,
-            )
+            # Fallback chain: DiffDock → GNINA → Vina
+            if score is None and diffdock_dock_smiles:
+                score = diffdock_dock_smiles(
+                    smiles=cand.smiles,
+                    receptor_pdb=receptor_pdb,
+                    n_poses=n_poses,
+                )
+                if score is not None:
+                    dock_tool_used = "diffdock"
+
+            if score is None and gnina_dock_smiles:
+                score = gnina_dock_smiles(
+                    smiles=cand.smiles,
+                    receptor_pdb=receptor_pdb,
+                    center=center,
+                    box_size=box_size,
+                    exhaustiveness=exhaustiveness,
+                    n_poses=n_poses,
+                )
+                if score is not None:
+                    dock_tool_used = "gnina"
+
+            if score is None and vina_dock_smiles:
+                score = vina_dock_smiles(
+                    smiles=cand.smiles,
+                    receptor_pdb=receptor_pdb,
+                    center=center,
+                    box_size=box_size,
+                    exhaustiveness=exhaustiveness,
+                    n_poses=n_poses,
+                )
+                if score is not None:
+                    dock_tool_used = "vina"
 
         elif cand.modality == "peptide":
             peptide_pdb = (
@@ -157,13 +214,36 @@ def dock_candidates(
                 or cand.metadata.get("complex_pdb")
             )
             if peptide_pdb and Path(peptide_pdb).exists():
-                score = dock_peptide_pdb(
-                    peptide_pdb=peptide_pdb,
-                    receptor_pdb=receptor_pdb,
-                    center=center,
-                    box_size=box_size,
-                    exhaustiveness=exhaustiveness,
-                )
+                # Fallback chain: DiffDock → GNINA → Vina
+                if score is None and diffdock_dock_peptide:
+                    score = diffdock_dock_peptide(
+                        peptide_pdb=peptide_pdb,
+                        receptor_pdb=receptor_pdb,
+                        n_poses=n_poses,
+                    )
+                    if score is not None:
+                        dock_tool_used = "diffdock"
+
+                if score is None and gnina_dock_peptide:
+                    score = gnina_dock_peptide(
+                        peptide_pdb=peptide_pdb,
+                        receptor_pdb=receptor_pdb,
+                        center=center,
+                        box_size=box_size,
+                    )
+                    if score is not None:
+                        dock_tool_used = "gnina"
+
+                if score is None and vina_dock_peptide:
+                    score = vina_dock_peptide(
+                        peptide_pdb=peptide_pdb,
+                        receptor_pdb=receptor_pdb,
+                        center=center,
+                        box_size=box_size,
+                        exhaustiveness=exhaustiveness,
+                    )
+                    if score is not None:
+                        dock_tool_used = "vina"
             else:
                 logger.debug(
                     "[M4.5] No PDB structure for peptide %s; skipping dock",
@@ -184,6 +264,7 @@ def dock_candidates(
             "modality": cand.modality,
             "binding_score": round(cand.binding_score, 4),
             "docked": score is not None,
+            "dock_tool": dock_tool_used,
         })
 
     # --- Save results ---

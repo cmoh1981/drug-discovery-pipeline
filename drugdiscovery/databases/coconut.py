@@ -15,6 +15,8 @@ from drugdiscovery.utils.web import get_with_retries, post_with_retries
 
 logger = logging.getLogger(__name__)
 
+# COCONUT 2.0 API (primary) and legacy fallback
+COCONUT_BASE_V2 = "https://coconut.naturalproducts.net/api/v2"
 COCONUT_BASE = "https://coconut.naturalproducts.net/api"
 
 _HEADERS = {"Accept": "application/json", "Content-Type": "application/json"}
@@ -23,11 +25,10 @@ _HEADERS = {"Accept": "application/json", "Content-Type": "application/json"}
 def search_coconut(query: str, limit: int = 100) -> list[dict]:
     """Search COCONUT for natural products matching a text query.
 
-    Sends a GET request to the simple search endpoint:
-        GET /search/simple?query={query}&perPage={limit}
-
-    Falls back to the POST /search endpoint if the simple endpoint is
-    unavailable, as the COCONUT API has changed between versions.
+    Tries multiple API versions in order:
+      1. COCONUT 2.0 API (v2 endpoint)
+      2. Simple search endpoint (GET /search/simple)
+      3. POST /search endpoint (legacy)
 
     Args:
         query: Free-text query (compound name, structural class, taxonomy, etc.).
@@ -38,11 +39,14 @@ def search_coconut(query: str, limit: int = 100) -> list[dict]:
             id, smiles, name, source, molecular_formula, molecular_weight
         Returns an empty list on any error.
     """
-    results = _search_simple(query, limit)
+    # Try COCONUT 2.0 API first
+    results = _search_v2(query, limit)
+    if results is None:
+        results = _search_simple(query, limit)
     if results is None:
         results = _search_post(query, limit)
     if results is None:
-        logger.warning("COCONUT: both search strategies failed for query %r", query)
+        logger.warning("COCONUT: all search strategies failed for query %r", query)
         return []
 
     logger.info("COCONUT search_coconut(%r): %d results", query, len(results))
@@ -85,6 +89,19 @@ def search_coconut_by_smiles(smiles: str, limit: int = 100) -> list[dict]:
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
+
+def _search_v2(query: str, limit: int) -> list[dict] | None:
+    """COCONUT 2.0 API — returns None if the request fails."""
+    try:
+        url = f"{COCONUT_BASE_V2}/search"
+        params: dict[str, Any] = {"query": query, "limit": limit}
+        resp = get_with_retries(url, headers=_HEADERS, params=params, timeout=30, attempts=2)
+        data = resp.json()
+        return _parse_response(data, limit)
+    except Exception as exc:
+        logger.debug("COCONUT v2 search failed (will try legacy): %s", exc)
+        return None
 
 
 def _search_simple(query: str, limit: int) -> list[dict] | None:

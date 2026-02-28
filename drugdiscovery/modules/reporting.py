@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Optional
 
 from drugdiscovery.types import Candidate, PipelineConfig, TargetProfile
+from drugdiscovery.tools.pubchem import resolve_iupac_names
 from drugdiscovery.utils.io import write_csv
 
 logger = logging.getLogger(__name__)
@@ -28,6 +29,9 @@ def generate_report(
     output_dir.mkdir(parents=True, exist_ok=True)
     fig_dir = output_dir / "figures"
     fig_dir.mkdir(exist_ok=True)
+
+    # Resolve IUPAC names for small-molecule candidates
+    resolve_iupac_names(candidates)
 
     # Executive summary CSV
     summary_rows = [c.to_dict() for c in candidates]
@@ -101,14 +105,14 @@ def _build_markdown_report(
     # Top candidates table
     top = candidates[:cfg.top_n]
     if top:
-        header = "| Rank | ID | Type | Source | Score | Drug-likeness | ADMET | Delivery |"
-        sep = "|------|-----|------|--------|-------|---------------|-------|----------|"
+        header = "| Rank | ID | Name | Type | Source | Score | Drug-likeness | ADMET | Delivery |"
+        sep = "|------|-----|------|------|--------|-------|---------------|-------|----------|"
         lines.append(header)
         lines.append(sep)
         for c in top:
-            seq_or_smiles = c.sequence[:20] if c.sequence else (c.smiles[:20] if c.smiles else "")
+            display_name = c.iupac_name[:30] if c.iupac_name else (c.sequence[:20] if c.sequence else "")
             lines.append(
-                f"| {c.rank} | {c.candidate_id} | {c.candidate_type} | {c.source} "
+                f"| {c.rank} | {c.candidate_id} | {display_name} | {c.candidate_type} | {c.source} "
                 f"| {c.composite_score:.4f} | {c.drug_likeness:.2f} "
                 f"| {c.admet_score:.2f} | {c.delivery_system} |"
             )
@@ -130,6 +134,8 @@ def _build_markdown_report(
             lines.append(f"- **Sequence:** `{c.sequence}`")
         if c.smiles:
             lines.append(f"- **SMILES:** `{c.smiles}`")
+        if c.iupac_name:
+            lines.append(f"- **IUPAC Name:** {c.iupac_name}")
         lines.extend([
             f"- **MW:** {c.molecular_weight:.1f} Da",
             f"- **Net Charge (pH 7.4):** {c.net_charge:+.1f}",
@@ -142,12 +148,75 @@ def _build_markdown_report(
             f"- **Delivery:** {c.delivery_system}",
             f"- **MOA:** {c.moa_predicted}",
         ])
+        if c.sa_score > 0:
+            lines.append(f"- **SA Score:** {c.sa_score:.1f}")
+        if c.perturbation_score > 0:
+            lines.append(f"- **Perturbation Score:** {c.perturbation_score:.3f}")
+            if c.cmap_compound_match:
+                lines.append(f"- **CMAP Match:** {c.cmap_compound_match}")
         if c.modification:
             lines.append(f"- **Modification:** {c.modification} — {c.modification_detail}")
         lines.append("")
 
+    # Perturbation Biology
+    pert_candidates = [c for c in top if c.perturbation_score > 0]
+    if pert_candidates:
+        lines.extend([
+            f"",
+            f"## Perturbation Biology Analysis",
+            f"",
+            f"| ID | CMAP Score | CMAP Match | Network Effect | Disease Reversal | Perturbation |",
+            f"|----|-----------|------------|----------------|------------------|-------------|",
+        ])
+        for c in pert_candidates[:10]:
+            lines.append(
+                f"| {c.candidate_id} | {c.cmap_connectivity:.3f} | {c.cmap_compound_match or 'N/A'} "
+                f"| {c.network_effect_score:.3f} | {c.disease_signature_reversal:.3f} "
+                f"| {c.perturbation_score:.3f} |"
+            )
+
+    # Synthetic Accessibility
+    sa_candidates = [c for c in top if c.sa_score > 0]
+    if sa_candidates:
+        lines.extend([
+            f"",
+            f"## Synthetic Accessibility",
+            f"",
+            f"| ID | SA Score | Interpretation |",
+            f"|----|----------|----------------|",
+        ])
+        for c in sa_candidates[:10]:
+            if c.sa_score <= 3:
+                interp = "Easy to synthesize"
+            elif c.sa_score <= 5:
+                interp = "Moderate"
+            elif c.sa_score <= 7:
+                interp = "Difficult"
+            else:
+                interp = "Very difficult"
+            lines.append(f"| {c.candidate_id} | {c.sa_score:.1f} | {interp} |")
+
+    # Database Source Breakdown
+    source_counts: dict[str, int] = {}
+    for c in candidates:
+        src = c.source or "unknown"
+        source_counts[src] = source_counts.get(src, 0) + 1
+    if source_counts:
+        lines.extend([
+            f"",
+            f"## Database Source Breakdown",
+            f"",
+            f"| Source | Count | Percentage |",
+            f"|--------|-------|------------|",
+        ])
+        total = len(candidates) or 1
+        for src, count in sorted(source_counts.items(), key=lambda x: -x[1]):
+            pct = count / total * 100
+            lines.append(f"| {src} | {count} | {pct:.1f}% |")
+
     # Statistics
     lines.extend([
+        f"",
         f"## Pipeline Statistics",
         f"",
         f"| Metric | Value |",
@@ -156,8 +225,10 @@ def _build_markdown_report(
         f"| Library hits | {sum(1 for c in candidates if c.candidate_type == 'library_hit')} |",
         f"| De novo generated | {sum(1 for c in candidates if c.candidate_type == 'de_novo')} |",
         f"| Modified variants | {sum(1 for c in candidates if c.candidate_type == 'modified')} |",
+        f"| Database sources | {len(source_counts)} |",
         f"| Mean composite score | {_mean([c.composite_score for c in candidates]):.4f} |",
         f"| Mean ADMET score | {_mean([c.admet_score for c in candidates]):.4f} |",
+        f"| Mean SA score | {_mean([c.sa_score for c in sa_candidates]):.1f} |" if sa_candidates else "",
         f"| Candidates with 0 ADMET flags | {sum(1 for c in candidates if c.admet_flags == 0)} |",
         f"",
         f"## Experimental Validation Recommendations",
@@ -212,7 +283,7 @@ def _build_html_report(
             <td>{html.escape(str(c.delivery_system))}</td>
         </tr>"""
 
-    html = f"""<!DOCTYPE html>
+    html_text = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -267,7 +338,7 @@ img {{ max-width: 100%; height: auto; margin: 1em 0; }}
 <p><em>Drug Discovery Pipeline v0.1.0</em></p>
 </body>
 </html>"""
-    return html
+    return html_text
 
 
 # ---------------------------------------------------------------------------
@@ -348,6 +419,30 @@ def _generate_figures(candidates: list[Candidate], fig_dir: Path) -> None:
         ax.set_title("Score by Source")
         fig.tight_layout()
         fig.savefig(fig_dir / "source_comparison.png", dpi=150)
+        plt.close(fig)
+
+    # Database source breakdown (pie chart)
+    if len(sources) > 1:
+        fig, ax = plt.subplots(figsize=(7, 7))
+        source_counts = {src: sum(1 for c in candidates if c.source == src) for src in sources}
+        labels = list(source_counts.keys())
+        sizes = list(source_counts.values())
+        ax.pie(sizes, labels=labels, autopct="%1.1f%%", startangle=140)
+        ax.set_title("Candidates by Database Source")
+        fig.tight_layout()
+        fig.savefig(fig_dir / "source_breakdown.png", dpi=150)
+        plt.close(fig)
+
+    # SA score distribution (small molecules only)
+    sa_scores = [c.sa_score for c in candidates if c.sa_score > 0]
+    if sa_scores:
+        fig, ax = plt.subplots(figsize=(8, 5))
+        ax.hist(sa_scores, bins=15, color="#8e44ad", edgecolor="white", alpha=0.8)
+        ax.set_xlabel("SA Score (1=easy, 10=hard)")
+        ax.set_ylabel("Count")
+        ax.set_title("Synthetic Accessibility Distribution")
+        fig.tight_layout()
+        fig.savefig(fig_dir / "sa_score_distribution.png", dpi=150)
         plt.close(fig)
 
     logger.info("Figures saved to %s", fig_dir)

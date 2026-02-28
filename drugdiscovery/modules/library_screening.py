@@ -137,6 +137,76 @@ def _screen_sm_databases(
     except Exception as exc:
         logger.warning("ZINC22 search failed: %s", exc)
 
+    # PubChem Bioassay
+    try:
+        from drugdiscovery.databases.pubchem_db import search_by_target as pubchem_search
+
+        results = pubchem_search(target.gene_name, limit=limit)
+        for r in results:
+            c = Candidate(
+                candidate_id=r.get("id", f"PCHEM_{len(hits)+1}"),
+                candidate_type="library_hit",
+                modality="small_molecule",
+                source="pubchem",
+                smiles=r.get("smiles", ""),
+                molecular_weight=_safe_float(r.get("molecular_weight", 0)),
+            )
+            if c.smiles:
+                hits.append(c)
+        _save_db_hits(output_dir / "pubchem_hits.csv", results)
+        logger.info("PubChem: %d hits for %s", len(results), target.gene_name)
+    except Exception as exc:
+        logger.warning("PubChem search failed: %s", exc)
+
+    # BindingDB
+    try:
+        from drugdiscovery.databases.bindingdb import search_by_uniprot as bindingdb_search
+
+        results = bindingdb_search(target.uniprot_id, limit=limit)
+        for r in results:
+            c = Candidate(
+                candidate_id=r.get("id", f"BDB_{len(hits)+1}"),
+                candidate_type="library_hit",
+                modality="small_molecule",
+                source="bindingdb",
+                smiles=r.get("smiles", ""),
+            )
+            if c.smiles:
+                # Store experimental affinity in metadata
+                c.metadata["affinity_type"] = r.get("affinity_type", "")
+                c.metadata["affinity_value"] = r.get("affinity_value", 0)
+                hits.append(c)
+        _save_db_hits(output_dir / "bindingdb_hits.csv", results)
+        logger.info("BindingDB: %d hits for %s", len(results), target.uniprot_id)
+    except Exception as exc:
+        logger.warning("BindingDB search failed: %s", exc)
+
+    # Open Targets (known drugs)
+    try:
+        from drugdiscovery.databases.opentargets import get_known_drugs
+
+        results = get_known_drugs(target.gene_name, limit=limit)
+        for r in results:
+            # Open Targets returns drug metadata but not always SMILES;
+            # include drugs that have SMILES or can be looked up later
+            c = Candidate(
+                candidate_id=r.get("id", f"OT_{len(hits)+1}"),
+                candidate_type="library_hit",
+                modality="small_molecule",
+                source="opentargets",
+                smiles=r.get("smiles", ""),
+                moa_predicted=r.get("mechanism_of_action", "unknown"),
+            )
+            c.metadata["drug_name"] = r.get("drug_name", "")
+            c.metadata["phase"] = r.get("phase", 0)
+            # Only add if we have SMILES or it's a known approved drug
+            if c.smiles or r.get("phase", 0) >= 3:
+                hits.append(c)
+        _save_db_hits(output_dir / "opentargets_hits.csv", results)
+        logger.info("Open Targets: %d known drugs for %s", len(results), target.gene_name)
+    except Exception as exc:
+        logger.warning("Open Targets search failed: %s", exc)
+
     return hits
 
 

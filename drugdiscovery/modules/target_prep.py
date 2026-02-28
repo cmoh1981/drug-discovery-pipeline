@@ -315,6 +315,30 @@ def prepare_target(cfg: PipelineConfig, output_dir: Path) -> TargetProfile:
     logger.info("M1 | Detecting binding pockets from UniProt features.")
     pockets = detect_binding_pockets(uniprot_data)
 
+    # Step 5b: Augment with structure-based pocket detection (P2Rank/fpocket)
+    if structure_pdb_path and not pockets:
+        logger.info("M1 | No UniProt pockets found; trying structure-based detection.")
+        try:
+            from drugdiscovery.tools.pocket_detection import detect_pockets
+            structure_pockets = detect_pockets(structure_pdb_path, max_pockets=5)
+            if structure_pockets:
+                pockets = structure_pockets
+                logger.info("M1 | Structure-based detection found %d pocket(s).", len(pockets))
+        except Exception as exc:
+            logger.warning("M1 | Structure-based pocket detection failed: %s", exc)
+    elif structure_pdb_path and pockets:
+        # Populate centroids for UniProt pockets that lack them
+        try:
+            from drugdiscovery.tools.pocket_detection import _compute_pdb_centroid
+            for pocket in pockets:
+                if pocket.centroid is None and pocket.residue_numbers:
+                    centroid = _compute_pdb_centroid(structure_pdb_path, pocket.residue_numbers)
+                    if centroid:
+                        pocket.centroid = centroid
+                        logger.debug("M1 | Computed centroid for %s: %s", pocket.pocket_id, centroid)
+        except Exception as exc:
+            logger.debug("M1 | Centroid computation failed: %s", exc)
+
     # Step 6: Find anti-targets (optional)
     logger.info("M1 | Searching for anti-targets in same gene family.")
     try:

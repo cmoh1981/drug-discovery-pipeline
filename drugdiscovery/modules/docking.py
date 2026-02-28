@@ -83,7 +83,7 @@ def dock_candidates(
     if not receptor_pdb or not Path(receptor_pdb).exists():
         logger.warning(
             "[M4.5] No receptor PDB available (structure_pdb_path=%s); "
-            "skipping docking — binding_score stays at 0.0",
+            "skipping docking -- binding_score stays at 0.0",
             receptor_pdb,
         )
         return candidates

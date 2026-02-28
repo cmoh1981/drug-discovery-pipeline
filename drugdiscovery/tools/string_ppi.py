@@ -176,7 +176,13 @@ def get_enrichment(
             "description": item.get("description", ""),
             "p_value": float(item.get("p_value", 1.0)),
             "gene_count": int(item.get("number_of_genes", 0)),
-            "genes": item.get("inputGenes", "").split(",") if item.get("inputGenes") else [],
+            "genes": (
+                item.get("inputGenes", [])
+                if isinstance(item.get("inputGenes"), list)
+                else item.get("inputGenes", "").split(",")
+                if item.get("inputGenes")
+                else []
+            ),
         })
 
     # Sort by p-value

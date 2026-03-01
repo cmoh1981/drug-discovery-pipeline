@@ -90,13 +90,31 @@ def get_progress(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    from service.log_streamer import _find_log_file, parse_module_tag
+
     job = db.query(Job).filter(Job.id == job_id, Job.user_id == current_user.id).first()
     if not job:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
+
+    step = 0
+    module = None
+
+    # Parse log file for progress (works for running and completed jobs)
+    log_path = _find_log_file(job.id)
+    if log_path and log_path.is_file():
+        try:
+            with open(log_path, "r", encoding="utf-8", errors="replace") as f:
+                for line in f:
+                    parsed = parse_module_tag(line)
+                    if parsed and parsed[1] > step:
+                        module, step = parsed[0], parsed[1]
+        except OSError:
+            pass
+
     return ProgressResponse(
-        step=job.progress_step,
-        total=job.progress_total,
-        module=job.current_module,
+        step=step,
+        total=10,
+        module=module,
         status=job.status,
     )
 

@@ -168,6 +168,47 @@ class TemplateResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# ── PubChem Enrichment ────────────────────────────────────────────────
+
+class LipinskiRule(BaseModel):
+    value: float | int | None = None
+    passed: bool = True
+
+
+class LipinskiAssessment(BaseModel):
+    violations: int = 0
+    drug_like: bool = True
+    rules: dict[str, LipinskiRule] = {}
+
+
+class PubChemEnrichment(BaseModel):
+    cid: int
+    pubchem_url: str
+    iupac_name: str = ""
+    molecular_formula: str = ""
+    molecular_weight: float | None = None
+    canonical_smiles: str = ""
+    inchikey: str = ""
+    xlogp: float | None = None
+    exact_mass: float | None = None
+    tpsa: float | None = None
+    complexity: float | None = None
+    h_bond_donor_count: int | None = None
+    h_bond_acceptor_count: int | None = None
+    rotatable_bond_count: int | None = None
+    heavy_atom_count: int | None = None
+    synonyms: list[str] = []
+    lipinski: LipinskiAssessment = LipinskiAssessment()
+
+
+class PubChemLookupRequest(BaseModel):
+    smiles: str = Field(min_length=1, max_length=2000)
+
+
+class PubChemBatchRequest(BaseModel):
+    smiles_list: list[str] = Field(min_length=1, max_length=50)
+
+
 # ── Health ────────────────────────────────────────────────────────────
 
 class HealthResponse(BaseModel):

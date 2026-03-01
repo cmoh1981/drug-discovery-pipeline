@@ -11,7 +11,15 @@ from service.dependencies import get_current_user
 from service.file_manager import get_candidates_data, get_job_output_dir, get_job_summary
 from service.log_streamer import stream_logs
 from service.models import Job, User
-from service.schemas import CandidateListResponse, CandidateResponse, JobSummary
+from service.pubchem_enrichment import enrich_batch, enrich_smiles
+from service.schemas import (
+    CandidateListResponse,
+    CandidateResponse,
+    JobSummary,
+    PubChemBatchRequest,
+    PubChemEnrichment,
+    PubChemLookupRequest,
+)
 
 router = APIRouter(prefix="/api/results", tags=["results"])
 
@@ -136,3 +144,83 @@ def stream_job_logs(
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+# ── PubChem Enrichment ───────────────────────────────────────────────
+
+
+@router.get(
+    "/{job_id}/candidates/{candidate_id}/pubchem",
+    response_model=PubChemEnrichment,
+)
+def get_candidate_pubchem(
+    job_id: str,
+    candidate_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Look up a candidate's SMILES in PubChem for enriched compound data."""
+    job = _get_user_job(job_id, db, current_user)
+    output_dir = get_job_output_dir(job_id, job.result_dir)
+    if not output_dir:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Result directory not found",
+        )
+    # Find the candidate's SMILES from CSV
+    rows, _ = get_candidates_data(output_dir, page=1, page_size=9999)
+    smiles = None
+    for row in rows:
+        if row.get("candidate_id") == candidate_id:
+            smiles = row.get("smiles", "")
+            break
+    if smiles is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Candidate {candidate_id} not found",
+        )
+    if not smiles.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Candidate has no SMILES (peptide candidates use sequence notation)",
+        )
+    result = enrich_smiles(smiles)
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Compound not found in PubChem",
+        )
+    return PubChemEnrichment(**result)
+
+
+# ── Standalone PubChem lookup (no job required) ──────────────────────
+
+pubchem_router = APIRouter(prefix="/api/pubchem", tags=["pubchem"])
+
+
+@pubchem_router.post("/lookup", response_model=PubChemEnrichment)
+def pubchem_lookup(
+    body: PubChemLookupRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """Look up any SMILES string in PubChem for compound details."""
+    result = enrich_smiles(body.smiles)
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Compound not found in PubChem",
+        )
+    return PubChemEnrichment(**result)
+
+
+@pubchem_router.post("/batch", response_model=dict[str, PubChemEnrichment | None])
+def pubchem_batch_lookup(
+    body: PubChemBatchRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """Batch look up multiple SMILES strings in PubChem."""
+    results = enrich_batch(body.smiles_list)
+    return {
+        smiles: PubChemEnrichment(**data) if data else None
+        for smiles, data in results.items()
+    }

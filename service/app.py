@@ -52,7 +52,9 @@ def create_app() -> FastAPI:
     # Phase 2+ routers (imported conditionally to allow incremental deployment)
     try:
         from service.routers.results_router import router as results_router
+        from service.routers.results_router import pubchem_router
         app.include_router(results_router)
+        app.include_router(pubchem_router)
     except ImportError:
         pass
 

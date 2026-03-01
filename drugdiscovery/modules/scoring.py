@@ -517,7 +517,10 @@ def compute_composite_score(
         norm_binding = _clamp(norm_binding)
 
     # ---- MOA consistency ----
-    moa = (candidate.moa_predicted or "unknown").lower()
+    moa_raw = candidate.moa_predicted
+    if not isinstance(moa_raw, str):
+        moa_raw = "unknown"
+    moa = (moa_raw or "unknown").lower()
     if moa == target_mode.lower():
         moa_score = 1.0
     elif moa == "unknown":

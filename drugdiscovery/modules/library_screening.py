@@ -63,7 +63,7 @@ def _screen_sm_databases(
                 source="chembl",
                 smiles=r.get("smiles", ""),
                 molecular_weight=_safe_float(r.get("mw", 0)),
-                moa_predicted=r.get("moa", "unknown"),
+                moa_predicted=str(r.get("moa", "unknown") or "unknown"),
             )
             if c.smiles:
                 hits.append(c)
@@ -84,7 +84,7 @@ def _screen_sm_databases(
                 modality="small_molecule",
                 source="drugbank",
                 smiles=r.get("smiles", ""),
-                moa_predicted=r.get("moa", "unknown"),
+                moa_predicted=str(r.get("moa", "unknown") or "unknown"),
             )
             if c.smiles:
                 hits.append(c)
@@ -195,7 +195,7 @@ def _screen_sm_databases(
                 modality="small_molecule",
                 source="opentargets",
                 smiles=r.get("smiles", ""),
-                moa_predicted=r.get("mechanism_of_action", "unknown"),
+                moa_predicted=str(r.get("mechanism_of_action", "unknown") or "unknown"),
             )
             c.metadata["drug_name"] = r.get("drug_name", "")
             c.metadata["phase"] = r.get("phase", 0)

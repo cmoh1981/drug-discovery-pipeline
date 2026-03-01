@@ -11,6 +11,11 @@ logger = logging.getLogger(__name__)
 
 ADMETLAB3_URL = "https://admetlab3.scbdd.com/api/aio-screening/predict"
 
+# Module-level flag: once the API is confirmed unreachable (SSL error,
+# connection refused, DNS failure, etc.) we skip all subsequent calls
+# in the same process to avoid wasting ~12s per candidate.
+_API_UNREACHABLE = False
+
 
 def predict_admet_admetlab3(smiles: str) -> Optional[dict[str, Any]]:
     """Submit a SMILES string to ADMETlab 3.0 and return ADMET predictions.
@@ -18,13 +23,17 @@ def predict_admet_admetlab3(smiles: str) -> Optional[dict[str, Any]]:
     Returns dict of ADMET properties or None if API call fails.
     API docs: https://admetlab3.scbdd.com/
     """
+    global _API_UNREACHABLE
+    if _API_UNREACHABLE:
+        return None
+
     try:
         resp = post_with_retries(
             ADMETLAB3_URL,
             json={"smiles": smiles},
-            timeout=120,
-            attempts=2,
-            delay=10,
+            timeout=30,
+            attempts=1,
+            delay=0,
         )
         data = resp.json()
 
@@ -39,7 +48,17 @@ def predict_admet_admetlab3(smiles: str) -> Optional[dict[str, Any]]:
         return _normalize_results(results)
 
     except Exception as exc:
-        logger.warning("ADMETlab3 API call failed for SMILES %.50s: %s", smiles, exc)
+        exc_str = str(exc)
+        # Cache connection-level failures so we don't retry 400+ times
+        if any(kw in exc_str for kw in ("SSL", "Certificate", "ConnectionError",
+                                         "Connection refused", "Name or service")):
+            _API_UNREACHABLE = True
+            logger.warning(
+                "ADMETlab3 API unreachable (SSL/connection error) — "
+                "disabling for remaining candidates: %s", exc,
+            )
+        else:
+            logger.warning("ADMETlab3 API call failed for SMILES %.50s: %s", smiles, exc)
         return None
 
 

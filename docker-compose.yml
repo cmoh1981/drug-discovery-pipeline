@@ -1,0 +1,23 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - job_results:/app/job_results
+      - db_data:/app/data
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=sqlite:///./data/drugdiscovery_service.db
+      - PIPELINE_OUTPUT_DIR=/app/job_results
+    deploy:
+      resources:
+        limits:
+          cpus: "3.5"
+          memory: 20G
+    restart: unless-stopped
+
+volumes:
+  job_results:
+  db_data:

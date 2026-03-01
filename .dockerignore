@@ -1,0 +1,17 @@
+results/
+job_results/
+test_job_results/
+.git/
+.pytest_cache/
+__pycache__/
+*.pyc
+*.pyo
+.env
+*.db
+*.db-wal
+*.db-shm
+.claude/
+docs/
+structures/
+*.md
+!README.md

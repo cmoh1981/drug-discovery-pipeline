@@ -38,16 +38,27 @@ docking = [
 cloud = [
     "runpod>=1.6.0",
 ]
+web = [
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "sqlalchemy>=2.0.25",
+    "python-jose[cryptography]>=3.3.0",
+    "bcrypt>=4.0.0",
+    "python-multipart>=0.0.6",
+    "pydantic-settings>=2.1.0",
+    "email-validator>=2.1.0",
+]
 dev = [
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",
+    "httpx>=0.26.0",
 ]
 all = [
-    "drugdiscovery[gpu,docking,cloud,dev]",
+    "drugdiscovery[gpu,docking,cloud,web,dev]",
 ]
 
 [project.scripts]
 drugdiscovery = "drugdiscovery.__main__:main"
 
 [tool.setuptools.packages.find]
-include = ["drugdiscovery*"]
+include = ["drugdiscovery*", "service*"]

@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from service.config import settings
@@ -69,5 +71,17 @@ def create_app() -> FastAPI:
     reports_dir = settings.PIPELINE_OUTPUT_DIR
     if os.path.isdir(reports_dir):
         app.mount("/reports", StaticFiles(directory=reports_dir), name="reports")
+
+    # Mount web UI static assets
+    static_dir = Path(__file__).parent / "static"
+    if static_dir.is_dir():
+        app.mount("/static", StaticFiles(directory=str(static_dir)), name="static_assets")
+
+    # Serve SPA root — hash routing means the browser always requests /
+    index_html = static_dir / "index.html"
+
+    @app.get("/", response_class=HTMLResponse)
+    def serve_spa():
+        return index_html.read_text(encoding="utf-8")
 
     return app

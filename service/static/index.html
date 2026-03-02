@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Drug Discovery Pipeline</title>
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+  <link rel="stylesheet" href="/static/css/layout.css">
+  <link rel="stylesheet" href="/static/css/components.css">
+  <link rel="stylesheet" href="/static/css/pages.css">
+</head>
+<body>
+  <div class="app-shell">
+
+    <!-- Sidebar -->
+    <nav id="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-icon">💊</div>
+        <div>
+          <h2>DrugDiscover</h2>
+          <small>AI Pipeline</small>
+        </div>
+      </div>
+      <nav>
+        <div class="nav-section">Main</div>
+        <a href="#/"><span class="nav-icon">🏠</span> Dashboard</a>
+        <a href="#/jobs"><span class="nav-icon">🧪</span> Jobs</a>
+        <a href="#/jobs/new"><span class="nav-icon">➕</span> New Job</a>
+        <div class="nav-section">Analysis</div>
+        <a href="#/compare"><span class="nav-icon">⚖️</span> Compare Runs</a>
+      </nav>
+      <div class="sidebar-footer">
+        Drug Discovery Pipeline v1.0
+      </div>
+    </nav>
+
+    <!-- Sidebar overlay (mobile) -->
+    <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+    <!-- Main content -->
+    <div class="main-wrapper">
+      <header class="top-bar">
+        <div style="display:flex;align-items:center;gap:.75rem">
+          <button class="hamburger" onclick="toggleSidebar()">☰</button>
+          <span class="page-title">Dashboard</span>
+        </div>
+        <div class="top-bar-right">
+          <button id="theme-toggle">🌙 Dark</button>
+          <div class="user-menu" id="user-menu">
+            <a href="#/login" class="btn btn-sm btn-primary">Sign In</a>
+          </div>
+        </div>
+      </header>
+      <main id="app-content">
+        <!-- Pages render here via router -->
+      </main>
+    </div>
+
+  </div>
+
+  <!-- Toast container -->
+  <div id="toast-container"></div>
+
+  <!-- Scripts -->
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/router.js"></script>
+  <script src="/static/js/pages/landing.js"></script>
+  <script src="/static/js/pages/login.js"></script>
+  <script src="/static/js/pages/register.js"></script>
+  <script src="/static/js/pages/jobs-gallery.js"></script>
+  <script src="/static/js/pages/job-submit.js"></script>
+  <script src="/static/js/pages/job-detail.js"></script>
+  <script src="/static/js/pages/job-dashboard.js"></script>
+  <script src="/static/js/pages/compare.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

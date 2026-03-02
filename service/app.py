@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -20,7 +21,17 @@ async def lifespan(app: FastAPI):
     """Startup and shutdown events."""
     create_tables()
     settings.output_path.mkdir(parents=True, exist_ok=True)
+
+    # Start billing scheduler if PortOne is configured
+    scheduler_task = None
+    if settings.PORTONE_API_SECRET:
+        from service.scheduler import billing_check_loop
+        scheduler_task = asyncio.create_task(billing_check_loop())
+
     yield
+
+    if scheduler_task:
+        scheduler_task.cancel()
     job_manager.shutdown(wait=False)
 
 
@@ -63,6 +74,12 @@ def create_app() -> FastAPI:
     try:
         from service.routers.compare_router import router as compare_router
         app.include_router(compare_router)
+    except ImportError:
+        pass
+
+    try:
+        from service.routers.subscription_router import router as subscription_router
+        app.include_router(subscription_router)
     except ImportError:
         pass
 

@@ -72,6 +72,8 @@ function renderJobSubmit() {
               </div>
             </div>
 
+            <div id="quota-info" style="margin-top:1rem"></div>
+
             <div style="margin-top:1.5rem">
               <button type="submit" class="btn btn-primary btn-lg" style="width:100%;justify-content:center" id="submit-btn">
                 🚀 Launch Pipeline
@@ -83,7 +85,49 @@ function renderJobSubmit() {
     </div>
   `;
   loadTemplates();
+  loadQuotaInfo();
   document.getElementById('submit-form').addEventListener('submit', handleSubmit);
+}
+
+async function loadQuotaInfo() {
+  try {
+    const q = await api.get('/api/subscription/');
+    const box = document.getElementById('quota-info');
+    if (!box) return;
+
+    const remaining = Math.max(0, q.runs_limit - q.runs_used);
+    const limitLabel = q.runs_limit >= 999999 ? 'Unlimited' : q.runs_limit;
+
+    if (!q.can_submit) {
+      box.innerHTML = `
+        <div style="padding:0.75rem;border-radius:8px;background:var(--danger,#ef4444);color:#fff;text-align:center">
+          Run quota exceeded (${q.runs_used}/${limitLabel} used).
+          <a href="#/pricing" style="color:#fff;text-decoration:underline;font-weight:600">Upgrade your plan</a>
+        </div>`;
+      const btn = document.getElementById('submit-btn');
+      if (btn) { btn.disabled = true; btn.textContent = 'Quota Exceeded'; }
+    } else {
+      box.innerHTML = `
+        <div style="padding:0.5rem 0.75rem;border-radius:8px;background:var(--bg-card);border:1px solid var(--border);font-size:0.85rem;color:var(--text-secondary)">
+          ${remaining === 999999 ? 'Unlimited' : remaining} run${remaining !== 1 ? 's' : ''} remaining
+          (${q.tier.charAt(0).toUpperCase() + q.tier.slice(1)} plan)
+          ${!q.is_gpu_enabled ? ' · <a href="#/pricing" style="color:var(--accent)">Upgrade for GPU access</a>' : ''}
+        </div>`;
+    }
+
+    // Warn if GPU checked on free tier
+    const gpuCheckbox = document.getElementById('sub-runpod');
+    if (gpuCheckbox && !q.is_gpu_enabled) {
+      gpuCheckbox.addEventListener('change', function () {
+        if (this.checked) {
+          showToast('GPU requires Pro or Enterprise plan', 'error');
+          this.checked = false;
+        }
+      });
+    }
+  } catch (e) {
+    // Subscription endpoint not available — skip quota display
+  }
 }
 
 function toggleAdvanced(header) {

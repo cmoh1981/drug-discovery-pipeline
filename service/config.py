@@ -25,6 +25,11 @@ class Settings(BaseSettings):
     # RunPod
     RUNPOD_API_KEY: str = ""
 
+    # PortOne Payment Gateway
+    PORTONE_API_SECRET: str = ""
+    PORTONE_STORE_ID: str = ""
+    PORTONE_CHANNEL_KEY: str = ""
+
     # CORS
     CORS_ORIGINS: str = "*"
 

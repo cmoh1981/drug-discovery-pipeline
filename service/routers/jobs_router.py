@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from service.database import get_db
 from service.dependencies import get_current_user
-from service.models import Job, User
+from service.models import Job, Subscription, User
 from service.schemas import JobCreate, JobListResponse, JobResponse, ProgressResponse
 from service.worker import job_manager
 
@@ -22,6 +22,33 @@ def submit_job(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    # ── Quota check ──────────────────────────────────────────────
+    tier_limits = {"free": 3, "pro": 50, "enterprise": 999999}
+    sub = (
+        db.query(Subscription)
+        .filter(Subscription.user_id == current_user.id, Subscription.status.in_(("active", "past_due")))
+        .first()
+    )
+    tier = sub.tier if sub and sub.tier != "free" else "free"
+
+    if tier == "free":
+        runs_used = db.query(Job).filter(Job.user_id == current_user.id).count()
+    else:
+        runs_used = sub.runs_used_this_period if sub else 0
+
+    if runs_used >= tier_limits.get(tier, 3):
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail="Run quota exceeded. Please upgrade your plan.",
+        )
+
+    if body.use_runpod and tier == "free":
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail="GPU access requires a Pro or Enterprise subscription.",
+        )
+    # ── End quota check ───────────────────────────────────────────
+
     job = Job(
         user_id=current_user.id,
         modality=body.modality,
@@ -35,6 +62,11 @@ def submit_job(
     db.add(job)
     db.commit()
     db.refresh(job)
+
+    # Increment period counter for paid subscribers
+    if sub and sub.tier != "free":
+        sub.runs_used_this_period += 1
+        db.commit()
 
     submitted = job_manager.submit_job(job.id, {
         "modality": body.modality,

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from service.config import settings
@@ -31,9 +31,20 @@ if "sqlite" in settings.DATABASE_URL:
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
+def _run_migrations() -> None:
+    """Add columns that may be missing from existing tables."""
+    insp = inspect(engine)
+    if "users" in insp.get_table_names():
+        cols = [c["name"] for c in insp.get_columns("users")]
+        if "subscription_tier" not in cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE users ADD COLUMN subscription_tier VARCHAR(20) DEFAULT 'free'"))
+
+
 def create_tables() -> None:
-    """Create all tables if they don't exist."""
+    """Create all tables if they don't exist, then run migrations."""
     Base.metadata.create_all(bind=engine)
+    _run_migrations()
 
 
 def get_db():

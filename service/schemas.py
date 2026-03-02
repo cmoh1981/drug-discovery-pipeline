@@ -209,6 +209,46 @@ class PubChemBatchRequest(BaseModel):
     smiles_list: list[str] = Field(min_length=1, max_length=50)
 
 
+# ── Subscriptions ─────────────────────────────────────────────────────
+
+class QuotaInfo(BaseModel):
+    tier: str = "free"
+    runs_used: int = 0
+    runs_limit: int = 3
+    can_submit: bool = True
+    is_gpu_enabled: bool = False
+
+
+class SubscriptionOut(BaseModel):
+    id: str
+    tier: str
+    status: str
+    runs_used_this_period: int = 0
+    current_period_start: datetime | None = None
+    current_period_end: datetime | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class BillingKeyRequest(BaseModel):
+    billing_key: str = Field(min_length=1)
+
+
+class SubscriptionCreateRequest(BaseModel):
+    tier: str = Field(pattern=r"^(pro|enterprise)$")
+
+
+class PaymentOut(BaseModel):
+    id: str
+    amount: int
+    currency: str
+    status: str
+    tier: str | None = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 # ── Health ────────────────────────────────────────────────────────────
 
 class HealthResponse(BaseModel):

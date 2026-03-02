@@ -55,6 +55,7 @@
       '#/jobs': 'Pipeline Jobs',
       '#/jobs/new': 'New Job',
       '#/compare': 'Compare Runs',
+      '#/pricing': 'Pricing',
     };
     const titleEl = document.querySelector('.page-title');
     if (titleEl) {
@@ -114,6 +115,7 @@
   router.add('#/jobs/:id/dashboard', requireAuth(renderJobDashboard));
   router.add('#/jobs/:id', requireAuth(renderJobDetail));
   router.add('#/compare', requireAuth(renderCompare));
+  router.add('#/pricing', requireAuth(renderPricing));
 
   // ── Boot ─────────────────────────────────────────────
   window.addEventListener('DOMContentLoaded', async () => {
@@ -129,6 +131,15 @@
       }
     }
     updateUserMenu();
+
+    // Load PortOne config for frontend SDK
+    try {
+      const cfg = await api.get('/api/subscription/config');
+      window.__PORTONE_STORE_ID = cfg.store_id || '';
+      window.__PORTONE_CHANNEL_KEY = cfg.channel_key || '';
+    } catch (e) {
+      // PortOne not configured — pricing page will show error
+    }
 
     window.addEventListener('hashchange', () => {
       updateSidebar();

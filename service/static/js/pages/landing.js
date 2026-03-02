@@ -152,7 +152,7 @@ async function loadHealth() {
 
 async function loadRecentJobs() {
   try {
-    const data = await api.get('/api/jobs?page_size=3');
+    const data = await api.get('/api/jobs/?page_size=3');
     const container = document.getElementById('recent-jobs');
     if (!container || !data.jobs.length) return;
     container.innerHTML = `

@@ -128,7 +128,7 @@ async function handleSubmit(e) {
   btn.disabled = true;
   btn.textContent = 'Submitting...';
   try {
-    const job = await api.post('/api/jobs', { target, modality, mode, tissue, top_n, use_runpod, config_overrides });
+    const job = await api.post('/api/jobs/', { target, modality, mode, tissue, top_n, use_runpod, config_overrides });
     showToast(`Job submitted for ${target}`, 'success');
     router.navigate(`#/jobs/${job.id}`);
   } catch (err) {

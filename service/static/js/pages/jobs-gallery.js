@@ -38,7 +38,7 @@ async function loadJobs(page) {
 
   container.innerHTML = '<div style="text-align:center;padding:2rem"><div class="spinner spinner-lg"></div></div>';
   try {
-    const data = await api.get(`/api/jobs?${params}`);
+    const data = await api.get(`/api/jobs/?${params}`);
     if (!data.jobs.length) {
       container.innerHTML = `
         <div class="empty-state">

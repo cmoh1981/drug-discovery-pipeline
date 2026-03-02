@@ -28,7 +28,7 @@ async function renderCompare() {
 async function loadCompareJobs() {
   const container = document.getElementById('compare-jobs-list');
   try {
-    const data = await api.get('/api/jobs?status=completed&page_size=100');
+    const data = await api.get('/api/jobs/?status=completed&page_size=100');
     if (!data.jobs.length) {
       container.innerHTML = '<p style="color:var(--text-secondary)">No completed jobs available for comparison.</p>';
       return;

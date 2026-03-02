@@ -1,70 +1,88 @@
-/* Design tokens extracted from reporting.py for visual consistency */
+/* Design tokens — scientific aesthetic inspired by Recursion.com
+   Restrained palette, high contrast, professional typography */
 :root, [data-theme="light"] {
-  /* Colors - from reporting.py lines 335-339 */
-  --bg-primary: #f8fafc;
+  /* Core palette — clean, clinical whites with teal-blue accent */
+  --bg-primary: #f7f8fa;
   --bg-card: #ffffff;
-  --text-primary: #1e293b;
-  --text-secondary: #64748b;
-  --accent: #2563eb;
-  --accent-light: #dbeafe;
-  --border: #e2e8f0;
-  --success: #16a34a;
+  --bg-hero: #0b1a2b;
+  --text-primary: #111827;
+  --text-secondary: #5b6578;
+  --accent: #0d6efd;
+  --accent-light: #e0ecff;
+  --accent-dark: #084298;
+  --border: #dfe3ea;
+  --success: #059669;
   --warning: #d97706;
   --danger: #dc2626;
   --chart-grid: #e2e8f0;
-  --bg-hover: #f1f5f9;
-  --bg-detail: #f8fafc;
-  --shadow: 0 1px 3px rgba(0,0,0,.1);
+  --bg-hover: #eef1f6;
+  --bg-detail: #f7f8fa;
+  --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+  --shadow-lg: 0 4px 16px rgba(0,0,0,.08);
 
-  /* Sidebar */
-  --bg-sidebar: #1e293b;
+  /* Sidebar — dark, authoritative */
+  --bg-sidebar: #0b1a2b;
   --sidebar-text: #e2e8f0;
-  --sidebar-text-dim: #94a3b8;
-  --sidebar-hover: #334155;
-  --sidebar-active: #2563eb;
+  --sidebar-text-dim: #8899ab;
+  --sidebar-hover: #132d4a;
+  --sidebar-active: #0d6efd;
 
   /* Extra */
   --bg-input: #ffffff;
-  --bg-overlay: rgba(0,0,0,.3);
-  --radius: 12px;
-  --radius-sm: 8px;
+  --bg-overlay: rgba(11,26,43,.4);
+  --radius: 8px;
+  --radius-sm: 6px;
+  --radius-lg: 12px;
   --transition: .2s ease;
+
+  /* Scientific accent colors */
+  --molecule-blue: #2563eb;
+  --dna-teal: #0891b2;
+  --protein-purple: #7c3aed;
+  --cell-green: #059669;
 }
 
 [data-theme="dark"] {
-  /* Colors - from reporting.py lines 341-346 */
-  --bg-primary: #0f172a;
-  --bg-card: #1e293b;
+  --bg-primary: #0a1120;
+  --bg-card: #111827;
+  --bg-hero: #0a1120;
   --text-primary: #f1f5f9;
   --text-secondary: #94a3b8;
   --accent: #3b82f6;
   --accent-light: #1e3a5f;
-  --border: #334155;
-  --success: #22c55e;
+  --accent-dark: #60a5fa;
+  --border: #1f2937;
+  --success: #10b981;
   --warning: #f59e0b;
   --danger: #ef4444;
-  --chart-grid: #334155;
-  --bg-hover: #334155;
-  --bg-detail: #0f172a;
-  --shadow: 0 1px 3px rgba(0,0,0,.4);
+  --chart-grid: #1f2937;
+  --bg-hover: #1f2937;
+  --bg-detail: #0a1120;
+  --shadow: 0 1px 3px rgba(0,0,0,.3);
+  --shadow-lg: 0 4px 16px rgba(0,0,0,.4);
 
-  /* Sidebar */
-  --bg-sidebar: #0f172a;
+  --bg-sidebar: #070d18;
   --sidebar-text: #e2e8f0;
   --sidebar-text-dim: #64748b;
-  --sidebar-hover: #1e293b;
+  --sidebar-hover: #111827;
   --sidebar-active: #3b82f6;
 
-  /* Extra */
-  --bg-input: #1e293b;
+  --bg-input: #1f2937;
   --bg-overlay: rgba(0,0,0,.6);
+
+  --molecule-blue: #3b82f6;
+  --dna-teal: #22d3ee;
+  --protein-purple: #a78bfa;
+  --cell-green: #34d399;
 }
 
-/* Font stack - from reporting.py line 348 */
+/* Typography — Inter for UI, system fallback. Clean, clinical. */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background: var(--bg-primary);
   color: var(--text-primary);
   line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }

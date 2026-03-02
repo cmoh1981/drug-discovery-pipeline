@@ -59,3 +59,11 @@ credentials.json
 # External database data (downloaded separately)
 data/bindingdb/
 data/drugbank/
+
+# PDCA / bkit plugin state
+docs/.bkit-memory.json
+docs/.pdca-status.json
+docs/.pdca-snapshots/
+
+# Archives
+*.zip

@@ -19,9 +19,10 @@ async function renderJobDashboard(params) {
       return;
     }
 
-    // The dashboard redirect endpoint gives us the right URL
-    // Use the job's result_dir to construct the report URL
-    const reportURL = `/reports/${job.id}/report/final_report.html`;
+    // result_dir is like "job_results/UUID/timestamp_target_..."
+    // /reports mount maps to job_results/, so strip that prefix
+    const resultPath = job.result_dir.replace(/^job_results[\\/]/, '');
+    const reportURL = `/reports/${resultPath}/report/final_report.html`;
 
     el.innerHTML = `
       <div class="dashboard-page">

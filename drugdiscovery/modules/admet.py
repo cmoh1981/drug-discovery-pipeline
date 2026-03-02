@@ -106,7 +106,7 @@ def _predict_peptide_admet(cand: Candidate) -> ADMETProfile:
 
     profile.flags = flags
     profile.flag_count = len([f for f in flags if f != "bbb_permeable"])
-    profile.aggregate_score = _compute_aggregate(profile)
+    profile.aggregate_score = _compute_aggregate(profile, modality="peptide")
 
     return profile
 
@@ -385,7 +385,7 @@ def _rdkit_admet(smiles: str, profile: ADMETProfile) -> ADMETProfile:
 
     profile.flags = flags
     profile.flag_count = len(flags)
-    profile.aggregate_score = _compute_aggregate(profile)
+    profile.aggregate_score = _compute_aggregate(profile, modality="small_molecule")
 
     return profile
 
@@ -505,7 +505,7 @@ def _admetlab3_to_profile(candidate_id: str, data: dict) -> ADMETProfile:
 
     profile.flags = flags
     profile.flag_count = len(flags)
-    profile.aggregate_score = _compute_aggregate(profile)
+    profile.aggregate_score = _compute_aggregate(profile, modality="small_molecule")
 
     return profile
 
@@ -514,18 +514,38 @@ def _admetlab3_to_profile(candidate_id: str, data: dict) -> ADMETProfile:
 # Aggregate scoring
 # ---------------------------------------------------------------------------
 
-def _compute_aggregate(profile: ADMETProfile) -> float:
-    """Compute weighted aggregate ADMET score (0-1, higher = better)."""
-    components = [
-        (profile.solubility, 0.20),
-        (profile.permeability, 0.15),
-        (1.0 - profile.hemolysis_risk, 0.15),
-        (profile.protease_stability, 0.15),
-        (1.0 - profile.aggregation_propensity, 0.10),
-        (1.0 - profile.hepatotoxicity_risk, 0.10),
-        (1.0 - profile.herg_liability, 0.10),
-        (profile.oral_bioavailability, 0.05),
-    ]
+def _compute_aggregate(profile: ADMETProfile, modality: str = "peptide") -> float:
+    """Compute weighted aggregate ADMET score (0-1, higher = better).
+
+    Uses modality-specific weighting so that peptide-relevant properties
+    (protease stability, hemolysis, aggregation) and SM-relevant properties
+    (CYP inhibition, plasma protein binding, oral bioavailability) each
+    contribute meaningfully to their respective aggregate scores.
+    """
+    if modality == "small_molecule":
+        # SM-specific: CYP, hERG, hepato, oral bioavailability are key
+        components = [
+            (profile.solubility, 0.15),
+            (profile.permeability, 0.15),
+            (profile.oral_bioavailability, 0.15),
+            (1.0 - profile.hepatotoxicity_risk, 0.15),
+            (1.0 - profile.herg_liability, 0.15),
+            (1.0 - profile.cyp_inhibition, 0.10),
+            (1.0 - profile.plasma_protein_binding * 0.5, 0.10),  # moderate PPB is ok
+            (1.0 - profile.bbb_permeability * 0.3, 0.05),        # mild penalty if unwanted
+        ]
+    else:
+        # Peptide-specific: protease stability, hemolysis, aggregation are key
+        components = [
+            (profile.solubility, 0.20),
+            (profile.permeability, 0.15),
+            (1.0 - profile.hemolysis_risk, 0.15),
+            (profile.protease_stability, 0.15),
+            (1.0 - profile.aggregation_propensity, 0.10),
+            (1.0 - profile.hepatotoxicity_risk, 0.10),
+            (1.0 - profile.herg_liability, 0.10),
+            (profile.oral_bioavailability, 0.05),
+        ]
     score = sum(val * wt for val, wt in components)
     return round(max(0.0, min(1.0, score)), 4)
 
@@ -539,11 +559,15 @@ def _profile_to_dict(profile: ADMETProfile) -> dict:
         "cpp_score": round(profile.cpp_score, 4),
         "oral_bioavailability": round(profile.oral_bioavailability, 4),
         "bbb_permeability": round(profile.bbb_permeability, 4),
+        "plasma_protein_binding": round(profile.plasma_protein_binding, 4),
+        "cyp_inhibition": round(profile.cyp_inhibition, 4),
         "protease_stability": round(profile.protease_stability, 4),
         "hemolysis_risk": round(profile.hemolysis_risk, 4),
         "aggregation_propensity": round(profile.aggregation_propensity, 4),
         "hepatotoxicity_risk": round(profile.hepatotoxicity_risk, 4),
         "herg_liability": round(profile.herg_liability, 4),
+        "half_life_estimate": profile.half_life_estimate,
+        "renal_clearance": profile.renal_clearance,
         "flag_count": profile.flag_count,
         "flags": "; ".join(profile.flags),
         "aggregate_score": round(profile.aggregate_score, 4),

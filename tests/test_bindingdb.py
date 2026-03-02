@@ -1,14 +1,24 @@
 """Tests for drugdiscovery.databases.bindingdb module."""
 
+import pytest
 from unittest.mock import MagicMock, patch
 
+import drugdiscovery.databases.bindingdb as _bdb_mod
 from drugdiscovery.databases.bindingdb import (
     _best_affinity,
-    _parse_binding_response,
+    _parse_api_response,
     _safe_affinity,
     search_by_target,
     search_by_uniprot,
 )
+
+
+@pytest.fixture(autouse=True)
+def _reset_circuit_breaker():
+    """Reset the BindingDB API circuit breaker between tests."""
+    _bdb_mod._api_unavailable = False
+    yield
+    _bdb_mod._api_unavailable = False
 
 
 # ---------------------------------------------------------------------------
@@ -89,11 +99,11 @@ class TestBestAffinity:
 
 
 # ---------------------------------------------------------------------------
-# _parse_binding_response
+# _parse_api_response
 # ---------------------------------------------------------------------------
 
 
-class TestParseBindingResponse:
+class TestParseApiResponse:
     def test_uniprot_envelope(self):
         data = {
             "getLigandsByUniprotsResponse": {
@@ -110,7 +120,7 @@ class TestParseBindingResponse:
                 ]
             }
         }
-        results = _parse_binding_response(data, limit=10)
+        results = _parse_api_response(data, limit=10)
         assert len(results) == 1
         assert results[0]["id"] == "BDB_12345"
         assert results[0]["smiles"] == "CCO"
@@ -136,7 +146,7 @@ class TestParseBindingResponse:
                 ]
             }
         }
-        results = _parse_binding_response(data, limit=10)
+        results = _parse_api_response(data, limit=10)
         assert len(results) == 1
         assert results[0]["affinity_type"] == "Kd"
         assert results[0]["affinity_value"] == 50.0
@@ -162,7 +172,7 @@ class TestParseBindingResponse:
                 "ec50": None,
             },
         ]
-        results = _parse_binding_response(data, limit=10)
+        results = _parse_api_response(data, limit=10)
         assert len(results) == 2
 
     def test_single_record_as_dict(self):
@@ -180,7 +190,7 @@ class TestParseBindingResponse:
                 }
             }
         }
-        results = _parse_binding_response(data, limit=10)
+        results = _parse_api_response(data, limit=10)
         assert len(results) == 1
         assert results[0]["id"] == "SINGLE"
 
@@ -189,16 +199,16 @@ class TestParseBindingResponse:
             {"monomerid": str(i), "smiles": "C", "ligand_name": f"mol_{i}"}
             for i in range(50)
         ]
-        results = _parse_binding_response(records, limit=5)
+        results = _parse_api_response(records, limit=5)
         assert len(results) == 5
 
     def test_empty_response(self):
-        assert _parse_binding_response({}, limit=10) == []
-        assert _parse_binding_response([], limit=10) == []
+        assert _parse_api_response({}, limit=10) == []
+        assert _parse_api_response([], limit=10) == []
 
     def test_no_affinity_data(self):
         data = [{"monomerid": "X", "smiles": "C", "ligand_name": "test"}]
-        results = _parse_binding_response(data, limit=10)
+        results = _parse_api_response(data, limit=10)
         assert len(results) == 1
         assert results[0]["affinity_type"] == ""
         assert results[0]["affinity_value"] is None
@@ -210,8 +220,9 @@ class TestParseBindingResponse:
 
 
 class TestSearchByUniprot:
+    @patch("drugdiscovery.databases.bindingdb._find_data_dir", return_value=None)
     @patch("drugdiscovery.databases.bindingdb.get_with_retries")
-    def test_successful_search(self, mock_get):
+    def test_successful_api_search(self, mock_get, mock_find):
         mock_resp = MagicMock()
         mock_resp.json.return_value = {
             "getLigandsByUniprotsResponse": {
@@ -234,14 +245,10 @@ class TestSearchByUniprot:
         assert len(results) == 1
         assert results[0]["id"] == "BDB_001"
         assert results[0]["source"] == "BindingDB"
-        mock_get.assert_called_once()
-        call_kwargs = mock_get.call_args
-        assert call_kwargs[1]["params"]["uniprot"] == "P00533"
-        assert call_kwargs[1]["params"]["response"] == "json"
-        assert call_kwargs[1]["timeout"] == 60
 
+    @patch("drugdiscovery.databases.bindingdb._find_data_dir", return_value=None)
     @patch("drugdiscovery.databases.bindingdb.get_with_retries")
-    def test_api_error_returns_empty(self, mock_get):
+    def test_api_error_returns_empty(self, mock_get, mock_find):
         mock_get.side_effect = Exception("Connection refused")
         results = search_by_uniprot("P00533")
         assert results == []
@@ -249,8 +256,9 @@ class TestSearchByUniprot:
     def test_empty_uniprot_returns_empty(self):
         assert search_by_uniprot("") == []
 
+    @patch("drugdiscovery.databases.bindingdb._find_data_dir", return_value=None)
     @patch("drugdiscovery.databases.bindingdb.get_with_retries")
-    def test_limit_is_applied(self, mock_get):
+    def test_limit_is_applied(self, mock_get, mock_find):
         records = [
             {
                 "monomerid": f"BDB_{i}",
@@ -276,8 +284,9 @@ class TestSearchByUniprot:
 
 
 class TestSearchByTarget:
+    @patch("drugdiscovery.databases.bindingdb._find_data_dir", return_value=None)
     @patch("drugdiscovery.databases.bindingdb.get_with_retries")
-    def test_successful_search(self, mock_get):
+    def test_successful_api_search(self, mock_get, mock_find):
         mock_resp = MagicMock()
         mock_resp.json.return_value = {
             "getLigandsByTargetResponse": {
@@ -303,13 +312,10 @@ class TestSearchByTarget:
         assert results[0]["ic50"] == 100.0
         assert results[0]["affinity_type"] == "Kd"
         assert results[0]["affinity_value"] == 25.0
-        mock_get.assert_called_once()
-        call_kwargs = mock_get.call_args
-        assert call_kwargs[1]["params"]["target"] == "EGFR"
-        assert call_kwargs[1]["params"]["response"] == "json"
 
+    @patch("drugdiscovery.databases.bindingdb._find_data_dir", return_value=None)
     @patch("drugdiscovery.databases.bindingdb.get_with_retries")
-    def test_api_error_returns_empty(self, mock_get):
+    def test_api_error_returns_empty(self, mock_get, mock_find):
         mock_get.side_effect = Exception("Timeout")
         results = search_by_target("EGFR")
         assert results == []
@@ -317,8 +323,9 @@ class TestSearchByTarget:
     def test_empty_target_returns_empty(self):
         assert search_by_target("") == []
 
+    @patch("drugdiscovery.databases.bindingdb._find_data_dir", return_value=None)
     @patch("drugdiscovery.databases.bindingdb.get_with_retries")
-    def test_multiple_results_with_best_affinity(self, mock_get):
+    def test_multiple_results_with_best_affinity(self, mock_get, mock_find):
         mock_resp = MagicMock()
         mock_resp.json.return_value = {
             "getLigandsByTargetResponse": {

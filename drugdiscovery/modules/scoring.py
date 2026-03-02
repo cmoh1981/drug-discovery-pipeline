@@ -351,13 +351,191 @@ def score_selectivity(
             candidate.selectivity_score,
         )
 
-    else:  # small molecule – placeholder
-        candidate.selectivity_score = 0.5
+    else:  # small molecule
+        candidate.selectivity_score = _sm_selectivity(candidate, target_profile)
         logger.debug(
-            "[M5] %s (SM) selectivity set to placeholder 0.5", candidate.candidate_id
+            "[M5] %s (SM) selectivity=%.4f",
+            candidate.candidate_id,
+            candidate.selectivity_score,
         )
 
     return candidate
+
+
+def _sm_selectivity(candidate: Candidate, target_profile: TargetProfile) -> float:
+    """Estimate small-molecule selectivity against anti-targets.
+
+    Strategy (in order of decreasing reliability):
+      1. Known binding affinity data — look up BindingDB for affinity
+         of this compound vs anti-target UniProt IDs.  If the candidate
+         binds the target much tighter than any anti-target, selectivity
+         is high.
+      2. Protein sequence identity — compute sequence identity between
+         target and anti-targets.  More divergent binding sites make
+         selectivity easier.
+      3. Fallback — 0.5 if no anti-targets are defined.
+    """
+    anti_targets = target_profile.anti_targets
+    if not anti_targets:
+        return 0.5  # no anti-targets known → neutral
+
+    # --- Strategy 1: known affinity data from BindingDB ---
+    sel = _sm_selectivity_from_affinity(candidate, target_profile)
+    if sel is not None:
+        return round(_clamp(sel), 4)
+
+    # --- Strategy 2: sequence-identity-based estimate ---
+    sel = _sm_selectivity_from_sequence(candidate, target_profile)
+    return round(_clamp(sel), 4)
+
+
+def _sm_selectivity_from_affinity(
+    candidate: Candidate, target_profile: TargetProfile
+) -> float | None:
+    """Check BindingDB for known affinities against anti-targets.
+
+    Returns None if no data is available.
+    """
+    try:
+        from drugdiscovery.databases.bindingdb import search_by_uniprot
+    except ImportError:
+        return None
+
+    smiles = candidate.smiles
+    if not smiles:
+        return None
+
+    # Candidate's affinity for the primary target (from docking or BindingDB)
+    target_affinity = abs(candidate.binding_score) if candidate.binding_score else None
+
+    anti_affinities: list[float] = []
+    for anti in target_profile.anti_targets:
+        anti_uniprot = anti.get("uniprot_id", "")
+        if not anti_uniprot:
+            continue
+
+        try:
+            hits = search_by_uniprot(anti_uniprot, limit=50)
+        except Exception:  # noqa: BLE001
+            continue
+
+        # Check if any BindingDB hit matches this candidate's SMILES
+        for hit in hits:
+            hit_smiles = hit.get("smiles", "")
+            if not hit_smiles:
+                continue
+            # Simple string match on canonical SMILES (sufficient for known drugs)
+            if hit_smiles == smiles:
+                aff = hit.get("affinity_value")
+                if aff is not None and aff > 0:
+                    anti_affinities.append(aff)
+
+    if not anti_affinities:
+        return None  # no known binding data for this compound
+
+    best_anti_affinity = min(anti_affinities)  # lowest nM = tightest binding
+
+    # If we have target affinity from docking, convert kcal/mol to rough nM
+    if target_affinity and target_affinity > 0:
+        # ΔG = RT ln(Ki) → Ki ≈ exp(ΔG / 0.592) nM (at 298K)
+        import math
+        target_nM = math.exp(-target_affinity / 0.592) * 1e9
+    else:
+        # No docking data → can't compute ratio
+        # But we know it binds anti-targets, which is bad → penalize
+        return 0.3
+
+    # Selectivity ratio: higher = more selective for target
+    if target_nM <= 0:
+        return 0.5
+    ratio = best_anti_affinity / target_nM
+    # ratio > 1 means binds target tighter than anti-target (good)
+    # ratio < 1 means binds anti-target tighter (bad)
+    selectivity = _clamp(ratio / (1.0 + ratio))  # sigmoid-like mapping to [0, 1]
+    return selectivity
+
+
+def _sm_selectivity_from_sequence(
+    candidate: Candidate, target_profile: TargetProfile
+) -> float:
+    """Estimate selectivity from target/anti-target sequence divergence.
+
+    If the target and anti-targets have very similar sequences (high identity),
+    achieving selectivity is harder → lower score.  If they are divergent,
+    selectivity is easier to achieve → higher score.
+
+    The binding score is used as a modulator: tighter binders are assumed
+    to be more specific (engaging a particular pocket geometry).
+    """
+    target_seq = target_profile.sequence
+    if not target_seq:
+        return 0.5
+
+    identities: list[float] = []
+    for anti in target_profile.anti_targets:
+        anti_seq = anti.get("sequence", "")
+        if not anti_seq:
+            # Try to use cached sequence from metadata
+            anti_seq = anti.get("protein_sequence", "")
+        if anti_seq:
+            ident = _sequence_identity(target_seq, anti_seq)
+            identities.append(ident)
+
+    if not identities:
+        # No anti-target sequence data — use gene family heuristic
+        # Same family proteins typically share 30-70% identity
+        # Assume moderate identity (selectivity challenge)
+        mean_identity = 0.5
+    else:
+        mean_identity = sum(identities) / len(identities)
+
+    # Convert identity to selectivity: lower identity = easier selectivity
+    # identity=1.0 (identical) → selectivity=0.2 (very hard)
+    # identity=0.5 → selectivity=0.5 (moderate)
+    # identity=0.2 → selectivity=0.8 (easy)
+    base_selectivity = 1.0 - (mean_identity * 0.8)
+
+    # Modulate by binding strength: tighter binders → more likely selective
+    binding = candidate.binding_score
+    if binding and binding < -5.0:
+        # Strong binder → boost selectivity slightly
+        binding_bonus = min(0.15, (-binding - 5.0) / 30.0)
+        base_selectivity = min(1.0, base_selectivity + binding_bonus)
+    elif binding and binding > -3.0:
+        # Weak binder → slight penalty
+        base_selectivity *= 0.8
+
+    return base_selectivity
+
+
+def _sequence_identity(seq1: str, seq2: str) -> float:
+    """Approximate global sequence identity between two protein sequences.
+
+    Uses a fast heuristic: fraction of matching residues at aligned positions
+    for the shorter sequence length (no gap handling, just a sliding window
+    best-match).  Sufficient for estimating family relatedness.
+    """
+    if not seq1 or not seq2:
+        return 0.0
+
+    short, long = (seq1, seq2) if len(seq1) <= len(seq2) else (seq2, seq1)
+    if len(short) < 10:
+        return 0.0
+
+    # Sample a window of the shorter sequence to save time
+    sample_len = min(len(short), 100)
+    short_sample = short[:sample_len]
+
+    best_matches = 0
+    # Slide the short sequence along the long one
+    for offset in range(0, len(long) - sample_len + 1, max(1, (len(long) - sample_len) // 20)):
+        matches = sum(
+            1 for a, b in zip(short_sample, long[offset : offset + sample_len])
+            if a == b
+        )
+        best_matches = max(best_matches, matches)
+
+    return best_matches / sample_len
 
 
 # ---------------------------------------------------------------------------

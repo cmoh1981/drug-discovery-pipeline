@@ -54,7 +54,7 @@ def predict_admet_admetlab3(smiles: str) -> Optional[dict[str, Any]]:
                                          "Connection refused", "Name or service")):
             _API_UNREACHABLE = True
             logger.warning(
-                "ADMETlab3 API unreachable (SSL/connection error) — "
+                "ADMETlab3 API unreachable (SSL/connection error) - "
                 "disabling for remaining candidates: %s", exc,
             )
         else:

@@ -80,8 +80,9 @@ def create_app() -> FastAPI:
     try:
         from service.routers.subscription_router import router as subscription_router
         app.include_router(subscription_router)
-    except ImportError:
-        pass
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).warning("Subscription router not loaded: %s", exc)
 
     # Mount static files for pipeline reports
     import os

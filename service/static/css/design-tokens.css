@@ -1,45 +1,45 @@
-/* Design tokens — scientific aesthetic inspired by Recursion.com
-   Restrained palette, high contrast, professional typography */
+/* Design tokens — bright, modern biotech aesthetic
+   Vibrant teal accent, light sidebar, airy feel */
 :root, [data-theme="light"] {
-  /* Core palette — clean, clinical whites with teal-blue accent */
-  --bg-primary: #f7f8fa;
+  /* Core palette — bright, clean with teal accent */
+  --bg-primary: #f0f9ff;
   --bg-card: #ffffff;
-  --bg-hero: #0b1a2b;
-  --text-primary: #111827;
-  --text-secondary: #5b6578;
-  --accent: #0d6efd;
-  --accent-light: #e0ecff;
-  --accent-dark: #084298;
-  --border: #dfe3ea;
-  --success: #059669;
-  --warning: #d97706;
-  --danger: #dc2626;
+  --bg-hero: #0c4a6e;
+  --text-primary: #0f172a;
+  --text-secondary: #64748b;
+  --accent: #0891b2;
+  --accent-light: #e0f2fe;
+  --accent-dark: #0e7490;
+  --border: #e2e8f0;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
   --chart-grid: #e2e8f0;
-  --bg-hover: #eef1f6;
-  --bg-detail: #f7f8fa;
-  --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
-  --shadow-lg: 0 4px 16px rgba(0,0,0,.08);
+  --bg-hover: #f0fdfa;
+  --bg-detail: #f8fafc;
+  --shadow: 0 1px 3px rgba(0,0,0,.04), 0 1px 2px rgba(0,0,0,.02);
+  --shadow-lg: 0 4px 20px rgba(0,0,0,.07);
 
-  /* Sidebar — dark, authoritative */
-  --bg-sidebar: #0b1a2b;
-  --sidebar-text: #e2e8f0;
-  --sidebar-text-dim: #8899ab;
-  --sidebar-hover: #132d4a;
-  --sidebar-active: #0d6efd;
+  /* Sidebar — clean white with teal accents */
+  --bg-sidebar: #ffffff;
+  --sidebar-text: #0f172a;
+  --sidebar-text-dim: #64748b;
+  --sidebar-hover: #f0fdfa;
+  --sidebar-active: #0891b2;
 
   /* Extra */
   --bg-input: #ffffff;
-  --bg-overlay: rgba(11,26,43,.4);
-  --radius: 8px;
+  --bg-overlay: rgba(15,23,42,.25);
+  --radius: 10px;
   --radius-sm: 6px;
-  --radius-lg: 12px;
+  --radius-lg: 14px;
   --transition: .2s ease;
 
-  /* Scientific accent colors */
-  --molecule-blue: #2563eb;
-  --dna-teal: #0891b2;
-  --protein-purple: #7c3aed;
-  --cell-green: #059669;
+  /* Scientific accent colors — vibrant */
+  --molecule-blue: #0ea5e9;
+  --dna-teal: #14b8a6;
+  --protein-purple: #8b5cf6;
+  --cell-green: #10b981;
 }
 
 [data-theme="dark"] {
@@ -48,35 +48,35 @@
   --bg-hero: #0a1120;
   --text-primary: #f1f5f9;
   --text-secondary: #94a3b8;
-  --accent: #3b82f6;
-  --accent-light: #1e3a5f;
-  --accent-dark: #60a5fa;
+  --accent: #22d3ee;
+  --accent-light: #164e63;
+  --accent-dark: #67e8f9;
   --border: #1f2937;
-  --success: #10b981;
-  --warning: #f59e0b;
-  --danger: #ef4444;
+  --success: #34d399;
+  --warning: #fbbf24;
+  --danger: #f87171;
   --chart-grid: #1f2937;
-  --bg-hover: #1f2937;
+  --bg-hover: #1e293b;
   --bg-detail: #0a1120;
   --shadow: 0 1px 3px rgba(0,0,0,.3);
   --shadow-lg: 0 4px 16px rgba(0,0,0,.4);
 
-  --bg-sidebar: #070d18;
+  --bg-sidebar: #0f172a;
   --sidebar-text: #e2e8f0;
   --sidebar-text-dim: #64748b;
-  --sidebar-hover: #111827;
-  --sidebar-active: #3b82f6;
+  --sidebar-hover: #1e293b;
+  --sidebar-active: #22d3ee;
 
   --bg-input: #1f2937;
-  --bg-overlay: rgba(0,0,0,.6);
+  --bg-overlay: rgba(0,0,0,.5);
 
-  --molecule-blue: #3b82f6;
-  --dna-teal: #22d3ee;
+  --molecule-blue: #38bdf8;
+  --dna-teal: #2dd4bf;
   --protein-purple: #a78bfa;
   --cell-green: #34d399;
 }
 
-/* Typography — Inter for UI, system fallback. Clean, clinical. */
+/* Typography — Inter for UI, system fallback. Clean, modern. */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;

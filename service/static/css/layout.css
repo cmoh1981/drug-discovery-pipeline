@@ -17,29 +17,39 @@
   bottom: 0;
   z-index: 100;
   transition: transform var(--transition);
+  border-right: 1px solid var(--border);
 }
 #sidebar .sidebar-brand {
   padding: 1.25rem 1rem;
-  border-bottom: 1px solid var(--sidebar-hover);
+  border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   gap: .75rem;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+#sidebar .sidebar-brand:hover {
+  background: var(--sidebar-hover);
 }
 #sidebar .sidebar-brand .brand-icon {
-  width: 36px;
-  height: 36px;
-  background: var(--accent);
+  width: 38px;
+  height: 38px;
+  background: linear-gradient(135deg, var(--accent), var(--dna-teal));
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   flex-shrink: 0;
+  color: #fff;
 }
 #sidebar .sidebar-brand h2 {
   font-size: .95rem;
   font-weight: 700;
   line-height: 1.2;
+  color: var(--sidebar-text);
 }
 #sidebar .sidebar-brand small {
   font-size: .7rem;
@@ -67,9 +77,10 @@
   background: var(--sidebar-hover);
 }
 #sidebar nav a.active {
-  color: #fff;
+  color: var(--sidebar-active);
   background: var(--sidebar-hover);
   border-left-color: var(--sidebar-active);
+  font-weight: 600;
 }
 #sidebar nav a .nav-icon {
   font-size: 1.1rem;

@@ -18,7 +18,8 @@ RUN pip install --no-cache-dir -e ".[web]" 2>/dev/null || \
     "passlib[bcrypt]>=1.7.4" \
     python-multipart>=0.0.6 \
     pydantic-settings>=2.1.0 \
-    email-validator>=2.1.0
+    email-validator>=2.1.0 \
+    httpx>=0.26.0
 
 # Copy application
 COPY . .

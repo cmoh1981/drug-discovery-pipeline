@@ -115,7 +115,7 @@
   router.add('#/jobs/:id/dashboard', requireAuth(renderJobDashboard));
   router.add('#/jobs/:id', requireAuth(renderJobDetail));
   router.add('#/compare', requireAuth(renderCompare));
-  router.add('#/pricing', requireAuth(renderPricing));
+  router.add('#/pricing', renderPricing);
 
   // ── Boot ─────────────────────────────────────────────
   window.addEventListener('DOMContentLoaded', async () => {

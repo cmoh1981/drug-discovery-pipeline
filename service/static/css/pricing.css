@@ -194,11 +194,108 @@
   letter-spacing: 0.04em;
 }
 
+/* Service features */
+.pricing-service-section {
+  margin-bottom: 2.5rem;
+}
+.pricing-service-section h3,
+.pricing-pipeline-section h3 {
+  text-align: center;
+  font-size: 1.25rem;
+  margin-bottom: 1.25rem;
+  color: var(--text-primary);
+}
+.service-features-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+}
+.service-feature-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.25rem;
+  text-align: center;
+}
+.service-feature-icon {
+  font-size: 1.75rem;
+  margin-bottom: 0.5rem;
+}
+.service-feature-card h4 {
+  font-size: 0.95rem;
+  margin-bottom: 0.35rem;
+}
+.service-feature-card p {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  margin: 0;
+}
+
+/* Pipeline overview on pricing page */
+.pricing-pipeline-section {
+  margin-bottom: 2.5rem;
+}
+
+/* FAQ */
+.pricing-faq {
+  margin-top: 3rem;
+}
+.pricing-faq h3 {
+  text-align: center;
+  font-size: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+.faq-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.25rem;
+}
+.faq-item {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.25rem;
+}
+.faq-item h4 {
+  font-size: 0.95rem;
+  margin-bottom: 0.4rem;
+}
+.faq-item p {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Contact bar */
+.pricing-contact {
+  text-align: center;
+  margin-top: 2rem;
+  padding: 1rem;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+.pricing-contact a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+.pricing-contact a:hover { text-decoration: underline; }
+
 /* Responsive */
 @media (max-width: 768px) {
   .pricing-grid {
     grid-template-columns: 1fr;
     max-width: 400px;
     margin: 0 auto;
+  }
+  .service-features-grid {
+    grid-template-columns: 1fr;
+    max-width: 400px;
+    margin: 0 auto;
+  }
+  .faq-grid {
+    grid-template-columns: 1fr;
   }
 }

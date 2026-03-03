@@ -48,7 +48,7 @@ function renderLanding() {
     <div class="landing-pricing-grid">
       <div class="landing-plan-card">
         <div class="plan-badge free">Free</div>
-        <div class="plan-price">$0</div>
+        <div class="plan-price">₩0</div>
         <ul class="plan-features">
           <li>3 pipeline runs total</li>
           <li>Standard docking</li>
@@ -59,7 +59,7 @@ function renderLanding() {
       <div class="landing-plan-card featured">
         <div class="popular-tag">Most Popular</div>
         <div class="plan-badge pro">Pro</div>
-        <div class="plan-price">$29<span>/mo</span></div>
+        <div class="plan-price">₩39,000<span>/월</span></div>
         <ul class="plan-features">
           <li>50 runs / month</li>
           <li>GPU-accelerated docking</li>
@@ -69,7 +69,7 @@ function renderLanding() {
       </div>
       <div class="landing-plan-card">
         <div class="plan-badge enterprise">Enterprise</div>
-        <div class="plan-price">$99<span>/mo</span></div>
+        <div class="plan-price">₩129,000<span>/월</span></div>
         <ul class="plan-features">
           <li>Unlimited runs</li>
           <li>GPU-accelerated docking</li>

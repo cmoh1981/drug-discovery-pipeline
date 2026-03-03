@@ -10,8 +10,8 @@ import httpx
 logger = logging.getLogger(__name__)
 
 TIER_PRICES = {
-    "pro": 2900,        # $29.00 in cents
-    "enterprise": 9900,  # $99.00 in cents
+    "pro": 39000,        # ₩39,000
+    "enterprise": 129000,  # ₩129,000
 }
 
 
@@ -42,7 +42,7 @@ class PortOneClient:
         self,
         billing_key: str,
         amount: int,
-        currency: str = "USD",
+        currency: str = "KRW",
         order_name: str = "Drug Discovery Pipeline Subscription",
     ) -> dict:
         """POST /payments/{payment_id}/billing-key -- charge a saved card."""

@@ -7,7 +7,7 @@ const PLANS = [
   {
     tier: 'free',
     name: 'Free',
-    price: '$0',
+    price: '₩0',
     period: '',
     desc: 'Get started with basic pipeline runs',
     features: [
@@ -24,8 +24,8 @@ const PLANS = [
   {
     tier: 'pro',
     name: 'Pro',
-    price: '$29',
-    period: '/mo',
+    price: '₩39,000',
+    period: '/월',
     desc: 'For active researchers needing GPU power',
     featured: true,
     features: [
@@ -42,8 +42,8 @@ const PLANS = [
   {
     tier: 'enterprise',
     name: 'Enterprise',
-    price: '$99',
-    period: '/mo',
+    price: '₩129,000',
+    period: '/월',
     desc: 'Unlimited runs with premium support',
     features: [
       { text: 'Unlimited pipeline runs', has: true },
@@ -161,7 +161,7 @@ async function renderPricing() {
       <tr>
         <td>${new Date(p.created_at).toLocaleDateString()}</td>
         <td>${p.tier || '—'}</td>
-        <td>$${(p.amount / 100).toFixed(2)} ${p.currency}</td>
+        <td>₩${p.amount.toLocaleString()}</td>
         <td>${p.status}</td>
       </tr>
     `).join('');

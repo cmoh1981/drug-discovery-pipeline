@@ -135,7 +135,7 @@ async def subscribe(
         result = await client.charge_billing_key(
             billing_key=sub.billing_key,
             amount=price,
-            currency="USD",
+            currency="KRW",
             order_name=f"Drug Discovery Pipeline - {body.tier.title()} Plan",
         )
     except Exception as e:
@@ -165,7 +165,7 @@ async def subscribe(
         subscription_id=sub.id,
         portone_payment_id=payment_id,
         amount=price,
-        currency="USD",
+        currency="KRW",
         status="paid",
         tier=body.tier,
     )

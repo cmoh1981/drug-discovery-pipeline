@@ -21,7 +21,8 @@ async function renderJobDashboard(params) {
 
     // result_dir is like "job_results/UUID/timestamp_target_..."
     // /reports mount maps to job_results/, so strip that prefix
-    const resultPath = job.result_dir.replace(/^job_results[\\/]/, '');
+    // Normalize backslashes (Windows) to forward slashes for URLs
+    const resultPath = job.result_dir.replace(/^job_results[\\/]/, '').replace(/\\/g, '/');
     const reportURL = `/reports/${resultPath}/report/final_report.html`;
 
     el.innerHTML = `

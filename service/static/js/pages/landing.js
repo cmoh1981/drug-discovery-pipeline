@@ -37,7 +37,45 @@ function renderLanding() {
       <div class="pricing-icon">&#x1F9EA;</div>
       <div class="pricing-text">
         <strong>First 3 pipeline runs are free</strong>
-        <span>For additional runs and enterprise access, contact us at <a href="mailto:brownbio.ocm@gmail.com">brownbio.ocm@gmail.com</a></span>
+        <span>Upgrade for more runs and GPU access &mdash; <a href="#/pricing">View Plans</a></span>
+      </div>
+    </div>
+
+    <div class="section-header">
+      <div class="section-tag">Plans &amp; Pricing</div>
+      <h2>Choose Your Plan</h2>
+    </div>
+    <div class="landing-pricing-grid">
+      <div class="landing-plan-card">
+        <div class="plan-badge free">Free</div>
+        <div class="plan-price">$0</div>
+        <ul class="plan-features">
+          <li>3 pipeline runs total</li>
+          <li>Standard docking</li>
+          <li>Full reporting</li>
+        </ul>
+        <a href="#/register" class="btn btn-outline" style="width:100%;justify-content:center">Get Started</a>
+      </div>
+      <div class="landing-plan-card featured">
+        <div class="popular-tag">Most Popular</div>
+        <div class="plan-badge pro">Pro</div>
+        <div class="plan-price">$29<span>/mo</span></div>
+        <ul class="plan-features">
+          <li>50 runs / month</li>
+          <li>GPU-accelerated docking</li>
+          <li>Priority queue</li>
+        </ul>
+        <a href="#/pricing" class="btn btn-primary" style="width:100%;justify-content:center">Upgrade</a>
+      </div>
+      <div class="landing-plan-card">
+        <div class="plan-badge enterprise">Enterprise</div>
+        <div class="plan-price">$99<span>/mo</span></div>
+        <ul class="plan-features">
+          <li>Unlimited runs</li>
+          <li>GPU-accelerated docking</li>
+          <li>Dedicated support</li>
+        </ul>
+        <a href="#/pricing" class="btn btn-outline" style="width:100%;justify-content:center">Contact Us</a>
       </div>
     </div>
 

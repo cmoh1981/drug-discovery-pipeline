@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
 from sqlalchemy.orm import Session
@@ -102,9 +104,11 @@ def get_dashboard(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Dashboard HTML not found",
         )
-    # Redirect to the static mount
-    relative = html_files[0].relative_to(output_dir)
-    return RedirectResponse(url=f"/reports/{job_id}/{relative}")
+    # Redirect to the static mount — /reports maps to PIPELINE_OUTPUT_DIR (job_results/)
+    # Use path relative to that root so the timestamp subdirectory is included
+    from service.config import settings as _cfg
+    relative = html_files[0].relative_to(Path(_cfg.PIPELINE_OUTPUT_DIR)).as_posix()
+    return RedirectResponse(url=f"/reports/{relative}")
 
 
 @router.get("/{job_id}/files/{file_path:path}")
